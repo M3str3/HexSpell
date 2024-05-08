@@ -1,0 +1,10 @@
+[package]
+name = "runic"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+thiserror = "1.0"
+
+[dev-dependencies]
+toml = "0.8.12"
