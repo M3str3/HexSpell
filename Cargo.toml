@@ -1,7 +1,10 @@
 [package]
 name = "runic"
 version = "0.1.0"
+authors=["Mestre <namestre3@protonmail.com>"]
 edition = "2021"
+description = "A open source lib to parse executables in Rust"
+repository = "https://github.com/M3str3/Runic"
 
 [dependencies]
 thiserror = "1.0"
