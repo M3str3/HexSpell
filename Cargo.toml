@@ -1,6 +1,6 @@
 [package]
 name = "hex_spell"
-version = "0.1.0"
+version = "0.1.1"
 authors=["Mestre <namestre3@protonmail.com>"]
 edition = "2021"
 description = "A open source lib to parse executables in Rust"
