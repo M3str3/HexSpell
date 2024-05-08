@@ -1,0 +1,6 @@
+[sample1]
+architecture="x86"
+checksum="7106"
+entry_point = "12d0"
+size_of_image="c000" 
+number_of_sections="8" 
