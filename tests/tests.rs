@@ -13,7 +13,7 @@ fn test_pe_parse() {
     for (key, value) in test_cases {
        
         let file_name: String = format!("tests/samples/{}.exe", key);
-        let pe: PeFile = parse_from_file(file_name.as_str()).expect("Failed to parse PE");
+        let mut pe: PeFile = parse_from_file(file_name.as_str()).expect("Failed to parse PE");
 
         let architecture: String = String::from(value.get("architecture").unwrap());
         let checksum: u32 = u32::from_str_radix(value.get("checksum").unwrap().trim_start_matches("0x"), 16).unwrap();
@@ -21,11 +21,16 @@ fn test_pe_parse() {
         let size_of_image: u32 = u32::from_str_radix(value.get("size_of_image").unwrap().trim_start_matches("0x"), 16).unwrap();
         let number_of_sections: u32 = u32::from_str_radix(value.get("number_of_sections").unwrap().trim_start_matches("0x"), 16).unwrap();
         
-        assert_eq!(pe.architecture, architecture, "Architecture does not match for {}",key);
-        assert_eq!(pe.checksum, checksum, "Checksum does not match for {}",key);
-        assert_eq!(pe.entry_point, entry_point, "Entry point does not match for {}", key);
-        assert_eq!(pe.size_of_image, size_of_image,"Size of image does not match for {}",key);
-        assert_eq!(pe.number_of_sections, number_of_sections, "Number of sections does not match for {}",key);
-        
+        // Testing parse params result
+        assert_eq!(pe.architecture.value, architecture, "Architecture does not match for {}",key);
+        assert_eq!(pe.checksum.value, checksum, "Checksum does not match for {}",key);
+        assert_eq!(pe.entry_point.value, entry_point, "Entry point does not match for {}", key);
+        assert_eq!(pe.size_of_image.value, size_of_image,"Size of image does not match for {}",key);
+        assert_eq!(pe.number_of_sections.value, number_of_sections, "Number of sections does not match for {}",key);
+
+        // Updating params    
+        pe.entry_point.update(&mut pe.buffer, 0x32EDu32);
+        assert_eq!(pe.entry_point.value, 0x32EDu32, "Entry point didnt changed");
+
     }
 }

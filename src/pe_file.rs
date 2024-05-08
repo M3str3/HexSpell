@@ -4,17 +4,18 @@ use std::convert::TryInto;
 
 use crate::pe_errors::PeError;
 
+use crate::field::Field;
 use crate::pe_section::PeSection;
 
 /// Strutc to define a PeFile from attr
 pub struct PeFile {
     pub buffer: Vec<u8>,
-    pub entry_point: u32,
-    pub size_of_image: u32,
-    pub number_of_sections: u32,
-    pub sections: Vec<PeSection>,
-    pub checksum: u32,
-    pub architecture: String
+    pub entry_point: Field<u32>,
+    pub size_of_image: Field<u32>,
+    pub number_of_sections: Field<u32>,
+    pub sections: Vec<PeSection>, 
+    pub checksum: Field<u32>,
+    pub architecture: Field<String>,
 }
 
 impl PeFile {
@@ -27,8 +28,6 @@ impl PeFile {
     }
 
 }
-
-
 
 ///------
 /// UTILS
@@ -128,11 +127,21 @@ pub fn parse_from_vec(buffer: Vec<u8>) -> Result<PeFile, PeError> {
 
     Ok(PeFile {
         buffer,
-        entry_point,
-        size_of_image,
-        number_of_sections,
+        entry_point: Field{
+            value: entry_point, offset: pe_header_offset + 40, size: 4
+        },
+        size_of_image: Field{
+            value: size_of_image, offset: pe_header_offset + 80, size: 4
+        },
+        number_of_sections: Field{
+            value: number_of_sections, offset: file_header_offset + 2, size: 2
+        },
         sections,
-        checksum,
-        architecture
+        checksum: Field{
+            value: checksum, offset: pe_header_offset + 88, size: 4
+        },
+        architecture: Field{
+            value: architecture, offset: pe_header_offset + 6, size: 2
+        }
     })
 }
