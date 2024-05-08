@@ -1,5 +1,5 @@
 [package]
-name = "runic"
+name = "hex_spell"
 version = "0.1.0"
 authors=["Mestre <namestre3@protonmail.com>"]
 edition = "2021"

@@ -44,7 +44,7 @@ impl PeFile {
 /// 
 /// # Example
 /// ```
-/// use runic::pe_file::parse_from_file;
+/// use hex_spell::pe_file::parse_from_file;
 /// let pe_file = parse_from_file("tests/samples/sample1.exe").unwrap();
 /// ```
 pub fn parse_from_file(path:&str) -> Result<PeFile, PeError> {
@@ -62,7 +62,7 @@ pub fn parse_from_file(path:&str) -> Result<PeFile, PeError> {
 ///
 /// # Example
 /// ```
-/// use runic::pe_file::parse_from_vec;
+/// use hex_spell::pe_file::parse_from_vec;
 /// let data = std::fs::read("tests/samples/sample1.exe").expect("Failed to read file");
 /// let pe_file = parse_from_vec(data).unwrap();
 /// ```

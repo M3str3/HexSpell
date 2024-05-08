@@ -2,7 +2,7 @@ use std::fs;
 use std::collections::HashMap;
 use toml;  
 
-use runic::pe_file::{ PeFile, parse_from_file };
+use hex_spell::pe_file::{ PeFile, parse_from_file };
 
 #[test]
 fn test_pe_parse() {
