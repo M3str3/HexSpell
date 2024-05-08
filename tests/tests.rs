@@ -29,8 +29,13 @@ fn test_pe_parse() {
         assert_eq!(pe.number_of_sections.value, number_of_sections, "Number of sections does not match for {}",key);
 
         // Updating params    
-        pe.entry_point.update(&mut pe.buffer, 0x32EDu32);
-        assert_eq!(pe.entry_point.value, 0x32EDu32, "Entry point didnt changed");
+        let new_entry: u32 = 0x32EDu32;
+        pe.entry_point.update(&mut pe.buffer, new_entry);
+        assert_eq!(pe.entry_point.value, new_entry, "Entry point didnt changed");
 
-    }
+        let new_section_name = String::from(".test");
+        pe.sections[0].name.update(&mut pe.buffer, &new_section_name);
+        assert_eq!(pe.sections[0].name.value, new_section_name, "Entry point didnt changed");
+
+    }   
 }

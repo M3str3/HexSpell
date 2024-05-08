@@ -1,15 +1,17 @@
 use std::io;
+use crate::field::Field;
+
 pub struct PeSection {
-    pub name: String,
-    pub virtual_size: u32,
-    pub virtual_address: u32,
-    pub size_of_raw_data: u32,
-    pub pointer_to_raw_data: u32,
-    pub pointer_to_relocations: u32,
-    pub pointer_to_linenumbers: u32,
-    pub number_of_relocations: u16,
-    pub number_of_linenumbers: u16,
-    pub characteristics: u32,
+    pub name: Field<String>,
+    pub virtual_size: Field<u32>,
+    pub virtual_address: Field<u32>,
+    pub size_of_raw_data: Field<u32>,
+    pub pointer_to_raw_data: Field<u32>,
+    pub pointer_to_relocations: Field<u32>,
+    pub pointer_to_linenumbers: Field<u32>,
+    pub number_of_relocations: Field<u16>,
+    pub number_of_linenumbers: Field<u16>,
+    pub characteristics: Field<u32>,
 }
 
 impl PeSection {
@@ -38,16 +40,36 @@ impl PeSection {
         let characteristics = u32::from_le_bytes(buffer[offset + 36..offset + 40].try_into().unwrap());
 
         Ok(PeSection {
-            name,
-            virtual_size,
-            virtual_address,
-            size_of_raw_data,
-            pointer_to_raw_data,
-            pointer_to_relocations,
-            pointer_to_linenumbers,
-            number_of_relocations,
-            number_of_linenumbers,
-            characteristics,
+            name: Field{
+                value: name, offset:offset, size: 8
+            },
+            virtual_size: Field {
+                value: virtual_size, offset: offset + 8, size: 4
+            },
+            virtual_address: Field {
+                value: virtual_address, offset: offset + 12, size: 4
+            },
+            size_of_raw_data: Field {
+                value: size_of_raw_data, offset: offset + 16, size: 4
+            },
+            pointer_to_raw_data: Field {
+                value: pointer_to_raw_data, offset: offset + 20, size: 4
+            },
+            pointer_to_relocations: Field {
+                value: pointer_to_relocations, offset: offset + 24, size: 4
+            },
+            pointer_to_linenumbers: Field {
+                value: pointer_to_linenumbers, offset: offset + 28, size: 4
+            },
+            number_of_relocations: Field {
+                value: number_of_relocations, offset: offset + 32, size: 4
+            },
+            number_of_linenumbers: Field {
+                value: number_of_linenumbers, offset: offset + 34, size: 2
+            },
+            characteristics: Field {
+                value: characteristics, offset: offset + 36, size: 4
+            },
         })
     }
 }
