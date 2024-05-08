@@ -31,8 +31,8 @@ impl Field<u16> {
 
 impl Field<String> {
     /// Updates the buffer at the specified offset with the new UTF-8 encoded string.
-    pub fn update(&mut self, buffer: &mut Vec<u8>, new_value: String) {
-        self.value = new_value;
+    pub fn update(&mut self, buffer: &mut Vec<u8>, new_value: &String) {
+        self.value = new_value.to_string();
         let bytes: &[u8] = self.value.as_bytes(); 
         if bytes.len() > self.size {
             panic!("New string value exceeds the allocated field size.");
