@@ -3,7 +3,7 @@ use std::io::{self, Write };
 
 use crate::pe_errors::PeError;
 use crate::field::Field;
-use crate::utils::{extract_u16, extract_u32};
+use crate::utils::{extract_u16, extract_u32, extract_u64};
 use crate::pe_section::PeSection;
 
 enum Architecture {
@@ -29,7 +29,16 @@ impl Architecture {
         }
     }
 }
+#[derive(PartialEq, Eq)]
+pub enum PEType {
+    PE32,
+    PE32Plus,
+}
 
+pub enum ImageBase {
+    Base32(u32),
+    Base64(u64),
+}
 
 /// Struct to define a PeFile from attr
 pub struct PeFile {
@@ -42,6 +51,13 @@ pub struct PeFile {
     pub architecture: Field<String>,
     pub section_alignment: Field<u32>, 
     pub file_alignment: Field<u32>,  
+    pub size_of_headers: Field<u32>,
+    pub base_of_code: Field<u32>,
+    pub base_of_data: Field<u32>,  
+    pub image_base: Field<ImageBase>,
+    pub subsystem: Field<u16>,
+    pub dll_characteristics: Field<u16>,
+    pub pe_type:PEType,
 }
 
 impl PeFile {
@@ -137,17 +153,41 @@ pub fn parse_from_vec(buffer: Vec<u8>) -> Result<PeFile, PeError> {
     let e_lfanew_offset = 0x3C;
     let pe_header_offset = extract_u32(&buffer, e_lfanew_offset)? as usize;
 
-    let number_of_sections = extract_u16(&buffer, pe_header_offset + 6)? as u32;
     let optional_header_offset = pe_header_offset + 24; 
     let optional_header_size = extract_u16(&buffer, pe_header_offset + 20)?;
     let sections_offset = optional_header_offset + optional_header_size as usize;
-
+    
+    // IMAGE FILE HEADER
+    let number_of_sections = extract_u16(&buffer, pe_header_offset + 6)? as u32;
+    let architecture = Architecture::from_u16(extract_u16(&buffer, pe_header_offset + 4)?);
+    
     let entry_point = extract_u32(&buffer, pe_header_offset + 40)?;
     let size_of_image = extract_u32(&buffer, pe_header_offset + 80)?;
-    let architecture = Architecture::from_u16(extract_u16(&buffer, pe_header_offset + 4)?);
     let checksum = extract_u32(&buffer, pe_header_offset + 88)?;
+    
+    // OPTIONAL HEADER
+    let base_of_code = extract_u32(&buffer, optional_header_offset + 20)?;
+    let base_of_data = extract_u32(&buffer, optional_header_offset + 24)?;
+
     let section_alignment = extract_u32(&buffer, optional_header_offset + 32)?;
     let file_alignment = extract_u32(&buffer, optional_header_offset + 36)?;
+    let size_of_headers = extract_u32(&buffer, optional_header_offset + 60)?;
+    let subsystem = extract_u16(&buffer, optional_header_offset + 68)?;
+    let dll_characteristics = extract_u16(&buffer, optional_header_offset + 70)?;
+
+    let magic = extract_u16(&buffer, optional_header_offset)?;
+
+    let pe_type = match magic {
+        0x10B => PEType::PE32,
+        0x20B => PEType::PE32Plus,
+        _ => return Err(PeError::InvalidPeFile),
+    };
+
+    let image_base = match pe_type {
+        PEType::PE32 => ImageBase::Base32(extract_u32(&buffer, optional_header_offset + 28)?),
+        PEType::PE32Plus => ImageBase::Base64(extract_u64(&buffer, optional_header_offset + 24)?),
+    };
+
 
     let mut sections = Vec::with_capacity(number_of_sections as usize);
     let mut current_offset = sections_offset;
@@ -167,6 +207,16 @@ pub fn parse_from_vec(buffer: Vec<u8>) -> Result<PeFile, PeError> {
         architecture: Field::new(architecture.to_string(), pe_header_offset + 4, 2),
         section_alignment: Field::new(section_alignment, optional_header_offset + 32, 4),
         file_alignment: Field::new(file_alignment, optional_header_offset + 36, 4),
+        image_base: Field::new(image_base, optional_header_offset + 28,  match pe_type {
+            PEType::PE32 => 4,
+            PEType::PE32Plus => 8,
+        }),
+        base_of_code: Field::new(base_of_code, optional_header_offset + 20, 4),
+        base_of_data: Field::new(base_of_data, optional_header_offset + 24, 4),
+        subsystem: Field::new(subsystem, optional_header_offset + 68, 2),
+        dll_characteristics: Field::new(dll_characteristics, optional_header_offset + 70, 2),
+        size_of_headers: Field::new(size_of_headers, optional_header_offset + 60, 4),
+        pe_type,
     })
 }
 

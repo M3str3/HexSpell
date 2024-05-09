@@ -1,7 +1,7 @@
 use std::fs;
 use toml::Value;
 
-use hex_spell::pe_file::{PeFile, parse_from_file};
+use hex_spell::pe_file::{self, parse_from_file, PeFile};
 
 #[test]
 fn test_pe_parse() {
@@ -50,6 +50,31 @@ fn test_pe_parse() {
                 .and_then(|v| v.as_str())
                 .map(|s| u32::from_str_radix(s, 16).unwrap())
                 .unwrap();
+            let base_of_code = value
+                .get("base_of_code")
+                .and_then(|v| v.as_str())
+                .map(|s| u32::from_str_radix(s, 16).unwrap())
+                .unwrap();
+            let base_of_data = value
+                .get("base_of_data")
+                .and_then(|v| v.as_str())
+                .map(|s| u32::from_str_radix(s, 16).unwrap())
+                .unwrap();
+            let size_of_headers = value
+                .get("size_of_headers")
+                .and_then(|v| v.as_str())
+                .map(|s| u32::from_str_radix(s, 16).unwrap())
+                .unwrap();
+            let subsystem = value
+                .get("subsystem")
+                .and_then(|v| v.as_str())
+                .map(|s| u16::from_str_radix(s, 16).unwrap())
+                .unwrap();
+            let dll_characteristics = value
+                .get("dll_characteristics")
+                .and_then(|v| v.as_str())
+                .map(|s| u16::from_str_radix(s, 16).unwrap())
+                .unwrap();
             
             // Testing parse params result
             assert_eq!(pe.architecture.value.to_string(), architecture, "Architecture does not match for {}",key);
@@ -59,6 +84,35 @@ fn test_pe_parse() {
             assert_eq!(pe.number_of_sections.value, number_of_sections, "Number of sections does not match for {}",key);
             assert_eq!(pe.section_alignment.value, section_alignment, "Section alignment of sections does not match for {}",key);
             assert_eq!(pe.file_alignment.value, file_alignment, "File alignment does not match for {}",key);
+            assert_eq!(pe.base_of_code.value, base_of_code, "Base of code does not match for {}",key);
+            assert_eq!(pe.base_of_data.value, base_of_data, "Base of data does not match for {}",key);
+            assert_eq!(pe.size_of_headers.value, size_of_headers, "Size of headers does not match for {}",key);
+            assert_eq!(pe.subsystem.value, subsystem, "Subsystem does not match for {}",key);
+            assert_eq!(pe.dll_characteristics.value, dll_characteristics, "DLL characteristics does not match for {}",key);
+            match pe.pe_type {
+                pe_file::PEType::PE32 => {
+                    let image_base = value
+                        .get("image_base")
+                        .and_then(|v| v.as_str())
+                        .map(|s| u32::from_str_radix(s, 16).unwrap())
+                        .unwrap();
+                    match pe.image_base.value {
+                            pe_file::ImageBase::Base32(base) => assert_eq!(base, image_base, "[PE32] Image base does not match for {}", key),
+                            _ => panic!("Incorrect type for image_base, expected u32"),
+                        }
+                },
+                pe_file::PEType::PE32Plus => {
+                    let image_base = value
+                        .get("image_base")
+                        .and_then(|v| v.as_str())
+                        .map(|s| u64::from_str_radix(s, 16).unwrap())
+                        .unwrap();
+                    match pe.image_base.value {
+                        pe_file::ImageBase::Base64(base) => assert_eq!(base, image_base, "[PE32+] Image base does not match for {}", key),
+                        _ => panic!("Incorrect type for image_base, expected u64"),
+                    }
+                }
+            }
 
             // Testing some functions
             let checksum_calculed: u32 = pe.calc_checksum();
