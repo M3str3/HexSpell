@@ -1,6 +1,17 @@
-[sample1]
+
+[pe.sample1]
+file_extension="exe"
 architecture="x86"
 checksum="7106"
 entry_point = "12d0"
 size_of_image="c000" 
 number_of_sections="8" 
+
+[pe.sample2]
+file_extension="dll" 
+architecture="x86"
+checksum="2ED7"
+entry_point = "1060"
+size_of_image="B000" 
+number_of_sections="0A"
+
