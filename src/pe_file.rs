@@ -1,10 +1,9 @@
 use std::fs;
 use std::io::{self, Write };
-use std::convert::TryInto;
 
 use crate::pe_errors::PeError;
-
 use crate::field::Field;
+use crate::utils::{extract_u16, extract_u32};
 use crate::pe_section::PeSection;
 
 enum Architecture {
@@ -164,18 +163,3 @@ pub fn parse_from_vec(buffer: Vec<u8>) -> Result<PeFile, PeError> {
     })
 }
 
-// Helper function to extract u32 from buffer safely
-fn extract_u32(buffer: &[u8], offset: usize) -> Result<u32, PeError> {
-    buffer.get(offset..offset + 4)
-        .ok_or(PeError::BufferOverflow)
-        .and_then(|bytes| bytes.try_into()
-                    .map_err(|_| PeError::BufferOverflow)
-                    .and_then(|bytes| Ok(u32::from_le_bytes(bytes))))
-}
-
-fn extract_u16(buffer: &[u8], offset: usize) -> Result<u16, PeError> {
-    buffer.get(offset..offset + 2)
-          .ok_or(PeError::BufferOverflow)
-          .and_then(|bytes| bytes.try_into().map_err(|_| PeError::BufferOverflow))
-          .and_then(|bytes| Ok(u16::from_le_bytes(bytes)))
-}
