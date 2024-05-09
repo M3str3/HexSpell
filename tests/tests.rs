@@ -15,25 +15,41 @@ fn test_pe_parse() {
             let file_name: String = format!("tests/samples/{}.{}", key, file_extension);
             let mut pe: PeFile = parse_from_file(&file_name).expect("Failed to parse PE");
     
-            let architecture = value.get("architecture")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap();
-            let checksum = value.get("checksum")
-                                .and_then(|v| v.as_str())
-                                .map(|s| u32::from_str_radix(s, 16).unwrap())
-                                .unwrap();
-            let entry_point = value.get("entry_point")
-                                   .and_then(|v| v.as_str())
-                                   .map(|s| u32::from_str_radix(s, 16).unwrap())
-                                   .unwrap();
-            let size_of_image = value.get("size_of_image")
-                                     .and_then(|v| v.as_str())
-                                     .map(|s| u32::from_str_radix(s, 16).unwrap())
-                                     .unwrap();
-            let number_of_sections = value.get("number_of_sections")
-                                          .and_then(|v| v.as_str())
-                                          .map(|s| u32::from_str_radix(s, 16).unwrap())
-                                          .unwrap();
+            // Getting real values from test.toml
+            let architecture = value
+                .get("architecture")
+                .and_then(|v| v.as_str())
+                .unwrap();
+            let checksum = value
+                .get("checksum")
+                .and_then(|v| v.as_str())
+                .map(|s| u32::from_str_radix(s, 16).unwrap())
+                .unwrap();
+            let entry_point = value
+                .get("entry_point")
+                .and_then(|v| v.as_str())
+                .map(|s| u32::from_str_radix(s, 16).unwrap())
+                .unwrap();
+            let size_of_image = value
+                .get("size_of_image")
+                .and_then(|v| v.as_str())
+                .map(|s| u32::from_str_radix(s, 16).unwrap())
+                .unwrap();
+            let number_of_sections = value
+                .get("number_of_sections")
+                .and_then(|v| v.as_str())
+                .map(|s| u32::from_str_radix(s, 16).unwrap())
+                .unwrap();
+            let section_alignment = value
+                .get("section_alignment")
+                .and_then(|v| v.as_str())
+                .map(|s| u32::from_str_radix(s, 16).unwrap())
+                .unwrap();
+            let file_alignment = value
+                .get("file_alignment")
+                .and_then(|v| v.as_str())
+                .map(|s| u32::from_str_radix(s, 16).unwrap())
+                .unwrap();
             
             // Testing parse params result
             assert_eq!(pe.architecture.value.to_string(), architecture, "Architecture does not match for {}",key);
@@ -41,22 +57,21 @@ fn test_pe_parse() {
             assert_eq!(pe.entry_point.value, entry_point, "Entry point does not match for {}", key);
             assert_eq!(pe.size_of_image.value, size_of_image,"Size of image does not match for {}",key);
             assert_eq!(pe.number_of_sections.value, number_of_sections, "Number of sections does not match for {}",key);
-            
+            assert_eq!(pe.section_alignment.value, section_alignment, "Section alignment of sections does not match for {}",key);
+            assert_eq!(pe.file_alignment.value, file_alignment, "File alignment does not match for {}",key);
+
             // Testing some functions
             let checksum_calculed: u32 = pe.calc_checksum();
             assert_eq!(pe.checksum.value, checksum_calculed, "Calculed checksum doesnt fit the original checksum");
     
             // Updating params    
             let new_entry: u32 = 0x32EDu32;
-            let old_entry: u32 = pe.entry_point.value;
-
             pe.entry_point.update(&mut pe.buffer, new_entry);
             assert_eq!(pe.entry_point.value, new_entry, "Entry point didnt changed");
-            assert_ne!(pe.entry_point.value, old_entry, "Entry point didnt changed");
     
             let new_section_name = String::from(".test");
             pe.sections[0].name.update(&mut pe.buffer, &new_section_name);
-            assert_eq!(pe.sections[0].name.value, new_section_name, "Entry point didnt changed");
+            assert_eq!(pe.sections[0].name.value, new_section_name, "Section name didnt changed");
         }
     }
 }

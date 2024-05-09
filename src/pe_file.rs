@@ -40,6 +40,8 @@ pub struct PeFile {
     pub sections: Vec<PeSection>, 
     pub checksum: Field<u32>,
     pub architecture: Field<String>,
+    pub section_alignment: Field<u32>, 
+    pub file_alignment: Field<u32>,  
 }
 
 impl PeFile {
@@ -136,13 +138,16 @@ pub fn parse_from_vec(buffer: Vec<u8>) -> Result<PeFile, PeError> {
     let pe_header_offset = extract_u32(&buffer, e_lfanew_offset)? as usize;
 
     let number_of_sections = extract_u16(&buffer, pe_header_offset + 6)? as u32;
+    let optional_header_offset = pe_header_offset + 24; 
     let optional_header_size = extract_u16(&buffer, pe_header_offset + 20)?;
-    let sections_offset = pe_header_offset + 24 + optional_header_size as usize;
+    let sections_offset = optional_header_offset + optional_header_size as usize;
 
     let entry_point = extract_u32(&buffer, pe_header_offset + 40)?;
     let size_of_image = extract_u32(&buffer, pe_header_offset + 80)?;
     let architecture = Architecture::from_u16(extract_u16(&buffer, pe_header_offset + 4)?);
     let checksum = extract_u32(&buffer, pe_header_offset + 88)?;
+    let section_alignment = extract_u32(&buffer, optional_header_offset + 32)?;
+    let file_alignment = extract_u32(&buffer, optional_header_offset + 36)?;
 
     let mut sections = Vec::with_capacity(number_of_sections as usize);
     let mut current_offset = sections_offset;
@@ -160,6 +165,8 @@ pub fn parse_from_vec(buffer: Vec<u8>) -> Result<PeFile, PeError> {
         sections,
         checksum: Field::new(checksum, pe_header_offset + 88, 4),
         architecture: Field::new(architecture.to_string(), pe_header_offset + 4, 2),
+        section_alignment: Field::new(section_alignment, optional_header_offset + 32, 4),
+        file_alignment: Field::new(file_alignment, optional_header_offset + 36, 4),
     })
 }
 

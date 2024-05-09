@@ -6,6 +6,8 @@ checksum="7106"
 entry_point = "12d0"
 size_of_image="c000" 
 number_of_sections="8" 
+section_alignment="1000"
+file_alignment="200"
 
 [pe.sample2]
 file_extension="dll" 
@@ -14,4 +16,6 @@ checksum="2ED7"
 entry_point = "1060"
 size_of_image="B000" 
 number_of_sections="0A"
+section_alignment="1000"
+file_alignment="200"
 
