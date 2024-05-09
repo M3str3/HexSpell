@@ -1,5 +1,6 @@
-use std::io;
+use crate::utils::{extract_u16,extract_u32};
 use crate::field::Field;
+use crate::pe_errors::PeError;
 
 pub struct PeSection {
     pub name: Field<String>,
@@ -23,53 +24,33 @@ impl PeSection {
     ///
     /// ## Returns
     /// A `io::Result` with PeSection
-    pub fn parse_section(buffer: &Vec<u8>, offset: usize) -> io::Result<Self> {
+    pub fn parse_section(buffer: &[u8], offset: usize) -> Result<Self, PeError> {
         if buffer.len() < offset + 40 {
-            return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "Buffer too small for section"));
+            return Err(PeError::BufferOverflow);
         }
 
         let name = String::from_utf8_lossy(&buffer[offset..offset + 8]).trim_end_matches('\0').to_string();
-        let virtual_size = u32::from_le_bytes(buffer[offset + 8..offset + 12].try_into().unwrap());
-        let virtual_address = u32::from_le_bytes(buffer[offset + 12..offset + 16].try_into().unwrap());
-        let size_of_raw_data = u32::from_le_bytes(buffer[offset + 16..offset + 20].try_into().unwrap());
-        let pointer_to_raw_data = u32::from_le_bytes(buffer[offset + 20..offset + 24].try_into().unwrap());
-        let pointer_to_relocations = u32::from_le_bytes(buffer[offset + 24..offset + 28].try_into().unwrap());
-        let pointer_to_linenumbers = u32::from_le_bytes(buffer[offset + 28..offset + 32].try_into().unwrap());
-        let number_of_relocations = u16::from_le_bytes(buffer[offset + 32..offset + 34].try_into().unwrap());
-        let number_of_linenumbers = u16::from_le_bytes(buffer[offset + 34..offset + 36].try_into().unwrap());
-        let characteristics = u32::from_le_bytes(buffer[offset + 36..offset + 40].try_into().unwrap());
+        let virtual_size = extract_u32(buffer, offset + 8)?;
+        let virtual_address = extract_u32(buffer, offset + 12)?;
+        let size_of_raw_data = extract_u32(buffer, offset + 16)?;
+        let pointer_to_raw_data = extract_u32(buffer, offset + 20)?;
+        let pointer_to_relocations = extract_u32(buffer, offset + 24)?;
+        let pointer_to_linenumbers = extract_u32(buffer, offset + 28)?;
+        let number_of_relocations = extract_u16(buffer, offset + 32)?;
+        let number_of_linenumbers = extract_u16(buffer, offset + 34)?;
+        let characteristics = extract_u32(buffer, offset + 36)?;
 
         Ok(PeSection {
-            name: Field{
-                value: name, offset:offset, size: 8
-            },
-            virtual_size: Field {
-                value: virtual_size, offset: offset + 8, size: 4
-            },
-            virtual_address: Field {
-                value: virtual_address, offset: offset + 12, size: 4
-            },
-            size_of_raw_data: Field {
-                value: size_of_raw_data, offset: offset + 16, size: 4
-            },
-            pointer_to_raw_data: Field {
-                value: pointer_to_raw_data, offset: offset + 20, size: 4
-            },
-            pointer_to_relocations: Field {
-                value: pointer_to_relocations, offset: offset + 24, size: 4
-            },
-            pointer_to_linenumbers: Field {
-                value: pointer_to_linenumbers, offset: offset + 28, size: 4
-            },
-            number_of_relocations: Field {
-                value: number_of_relocations, offset: offset + 32, size: 4
-            },
-            number_of_linenumbers: Field {
-                value: number_of_linenumbers, offset: offset + 34, size: 2
-            },
-            characteristics: Field {
-                value: characteristics, offset: offset + 36, size: 4
-            },
+            name: Field::new(name, offset, 8),
+            virtual_size: Field::new(virtual_size, offset + 8, 4),
+            virtual_address: Field::new(virtual_address, offset + 12, 4),
+            size_of_raw_data: Field::new(size_of_raw_data, offset + 16, 4),
+            pointer_to_raw_data: Field::new(pointer_to_raw_data, offset + 20, 4),
+            pointer_to_relocations: Field::new(pointer_to_relocations, offset + 24, 4),
+            pointer_to_linenumbers: Field::new(pointer_to_linenumbers, offset + 28, 4),
+            number_of_relocations: Field::new(number_of_relocations, offset + 32, 2),
+            number_of_linenumbers: Field::new(number_of_linenumbers, offset + 34, 2),
+            characteristics: Field::new(characteristics, offset + 36, 4),
         })
     }
 }
