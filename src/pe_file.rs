@@ -22,7 +22,6 @@ impl Architecture {
         }
     }
 
-    // Este método es necesario para convertir el valor de enum a String cuando se almacena en la estructura
     fn to_string(&self) -> String {
         match *self {
             Architecture::X86 => "x86".to_string(),
@@ -33,7 +32,7 @@ impl Architecture {
 }
 
 
-/// Strutc to define a PeFile from attr
+/// Struct to define a PeFile from attr
 pub struct PeFile {
     pub buffer: Vec<u8>,
     pub entry_point: Field<u32>,
@@ -51,6 +50,44 @@ impl PeFile {
         let mut file: fs::File = fs::File::create(output_path)?;
         file.write_all(&self.buffer)?;
         Ok(())
+    }
+
+    /// Calculate the checksum for a PE file, ignoring the checksum field itself
+    /// 
+    /// # Examples
+    /// ```
+    /// use hex_spell::pe_file::parse_from_file;
+    /// let pe_file = parse_from_file("tests/samples/sample1.exe").unwrap(); // Sample checksum has to be the correct
+    /// let calculed_check:u32 = pe_file.calc_checksum(); 
+    /// assert_eq!(pe_file.checksum.value, calculed_check);
+    /// ```
+    pub fn calc_checksum(&self) -> u32 {
+        let mut checksum: u32 = 0;
+        let len = self.buffer.len();
+        let mut i = 0;
+
+        while i < len {
+            // Skip checksum field  
+            if i == self.checksum.offset {
+                i += self.checksum.size;
+                continue;
+            }
+            
+            if i + 1 < len {
+                let word = u16::from_le_bytes([self.buffer[i], self.buffer[i + 1]]);
+                checksum += u32::from(word);
+                i += 2;  
+            } else {
+                checksum += u32::from(self.buffer[i]);
+                break;
+            }
+        }
+
+        checksum = (checksum & 0xFFFF) + (checksum >> 16);
+        checksum += len as u32;
+        checksum = (checksum & 0xFFFF) + (checksum >> 16);
+        checksum = (checksum & 0xFFFF) + (checksum >> 16);
+        checksum
     }
 
 }

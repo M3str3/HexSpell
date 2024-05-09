@@ -22,11 +22,15 @@ fn test_pe_parse() {
         let number_of_sections: u32 = u32::from_str_radix(value.get("number_of_sections").unwrap().trim_start_matches("0x"), 16).unwrap();
         
         // Testing parse params result
-        assert_eq!(pe.architecture.value, architecture, "Architecture does not match for {}",key);
+        assert_eq!(pe.architecture.value.to_string(), architecture, "Architecture does not match for {}",key);
         assert_eq!(pe.checksum.value, checksum, "Checksum does not match for {}",key);
         assert_eq!(pe.entry_point.value, entry_point, "Entry point does not match for {}", key);
         assert_eq!(pe.size_of_image.value, size_of_image,"Size of image does not match for {}",key);
         assert_eq!(pe.number_of_sections.value, number_of_sections, "Number of sections does not match for {}",key);
+        
+        // Testing some functions
+        let checksum_calculed: u32 = pe.calc_checksum();
+        assert_eq!(pe.checksum.value, checksum_calculed, "Calculed checksum doesnt fit the original checksum");
 
         // Updating params    
         let new_entry: u32 = 0x32EDu32;
