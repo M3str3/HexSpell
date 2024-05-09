@@ -7,6 +7,32 @@ use crate::pe_errors::PeError;
 use crate::field::Field;
 use crate::pe_section::PeSection;
 
+enum Architecture {
+    X86,
+    X64,
+    Unknown,
+}
+
+impl Architecture {
+    fn from_u16(value: u16) -> Self {
+        match value {
+            0x014c => Architecture::X86,
+            0x8664 => Architecture::X64,
+            _ => Architecture::Unknown,
+        }
+    }
+
+    // Este método es necesario para convertir el valor de enum a String cuando se almacena en la estructura
+    fn to_string(&self) -> String {
+        match *self {
+            Architecture::X86 => "x86".to_string(),
+            Architecture::X64 => "x64".to_string(),
+            Architecture::Unknown => "Unknown".to_string(),
+        }
+    }
+}
+
+
 /// Strutc to define a PeFile from attr
 pub struct PeFile {
     pub buffer: Vec<u8>,
@@ -70,78 +96,49 @@ pub fn parse_from_vec(buffer: Vec<u8>) -> Result<PeFile, PeError> {
         return Err(PeError::InvalidPeFile);
     }
 
-    // Helper function to extract u32 from buffer safely
-    fn extract_u32(buffer: &[u8], offset: usize) -> Result<u32, PeError> {
-        buffer.get(offset..offset + 4)
-            .ok_or(PeError::BufferOverflow)
-            .and_then(|bytes| bytes.try_into()
-                      .map_err(|_| PeError::BufferOverflow)
-                      .and_then(|bytes| Ok(u32::from_le_bytes(bytes))))
-    }
+    let e_lfanew_offset = 0x3C;
+    let pe_header_offset = extract_u32(&buffer, e_lfanew_offset)? as usize;
 
-    let e_lfanew_offset: usize = 0x3C;
-    let pe_header_offset: usize = extract_u32(&buffer, e_lfanew_offset)? as usize;
+    let number_of_sections = extract_u16(&buffer, pe_header_offset + 6)? as u32;
+    let optional_header_size = extract_u16(&buffer, pe_header_offset + 20)?;
+    let sections_offset = pe_header_offset + 24 + optional_header_size as usize;
 
-    let signature_offset: usize = pe_header_offset;
-    if signature_offset + 24 > buffer.len() {
-        return Err(PeError::BufferOverflow);
-    }
+    let entry_point = extract_u32(&buffer, pe_header_offset + 40)?;
+    let size_of_image = extract_u32(&buffer, pe_header_offset + 80)?;
+    let architecture = Architecture::from_u16(extract_u16(&buffer, pe_header_offset + 4)?);
+    let checksum = extract_u32(&buffer, pe_header_offset + 88)?;
 
-    let file_header_offset: usize = signature_offset + 4;
-    let number_of_sections: u32 = u16::from_le_bytes(
-        buffer.get(file_header_offset + 2..file_header_offset + 4)
-              .ok_or(PeError::BufferOverflow)?.try_into()?) as u32;
-
-    let optional_header_size: u16 = u16::from_le_bytes(
-        buffer.get(file_header_offset + 16..file_header_offset + 18)
-              .ok_or(PeError::BufferOverflow)?.try_into()?);
-
-    let sections_offset: usize = file_header_offset + 20 + optional_header_size as usize;
-    if sections_offset > buffer.len() {
-        return Err(PeError::BufferOverflow);
-    }
-
-    let entry_point: u32 = extract_u32(&buffer, pe_header_offset + 40)?;
-    let size_of_image: u32 = extract_u32(&buffer, pe_header_offset + 80)?;
-
-    let architecture: String = match u16::from_le_bytes(
-        buffer.get(pe_header_offset + 4..pe_header_offset + 6)
-              .ok_or(PeError::BufferOverflow)?.try_into()?) {
-        0x014c => "x86",
-        0x8664 => "x64",
-        _ => "Unknown",
-    }.to_string();
-
-    let checksum: u32 = extract_u32(&buffer, pe_header_offset + 88)?;
-
-    let mut sections: Vec<PeSection> = Vec::with_capacity(number_of_sections as usize);
-    let mut current_offset: usize = sections_offset;
+    let mut sections = Vec::with_capacity(number_of_sections as usize);
+    let mut current_offset = sections_offset;
     for _ in 0..number_of_sections {
-        if current_offset + 40 > buffer.len() {
-            return Err(PeError::BufferOverflow);
-        }
-        let section: PeSection = PeSection::parse_section(&buffer, current_offset)?;
+        let section = PeSection::parse_section(&buffer, current_offset)?;
         sections.push(section);
         current_offset += 40;
     }
 
     Ok(PeFile {
         buffer,
-        entry_point: Field{
-            value: entry_point, offset: pe_header_offset + 40, size: 4
-        },
-        size_of_image: Field{
-            value: size_of_image, offset: pe_header_offset + 80, size: 4
-        },
-        number_of_sections: Field{
-            value: number_of_sections, offset: file_header_offset + 2, size: 2
-        },
+        entry_point: Field::new(entry_point, pe_header_offset + 40, 4),
+        size_of_image: Field::new(size_of_image, pe_header_offset + 80, 4),
+        number_of_sections: Field::new(number_of_sections, pe_header_offset + 6, 2),
         sections,
-        checksum: Field{
-            value: checksum, offset: pe_header_offset + 88, size: 4
-        },
-        architecture: Field{
-            value: architecture, offset: pe_header_offset + 6, size: 2
-        }
+        checksum: Field::new(checksum, pe_header_offset + 88, 4),
+        architecture: Field::new(architecture.to_string(), pe_header_offset + 4, 2),
     })
+}
+
+// Helper function to extract u32 from buffer safely
+fn extract_u32(buffer: &[u8], offset: usize) -> Result<u32, PeError> {
+    buffer.get(offset..offset + 4)
+        .ok_or(PeError::BufferOverflow)
+        .and_then(|bytes| bytes.try_into()
+                    .map_err(|_| PeError::BufferOverflow)
+                    .and_then(|bytes| Ok(u32::from_le_bytes(bytes))))
+}
+
+fn extract_u16(buffer: &[u8], offset: usize) -> Result<u16, PeError> {
+    buffer.get(offset..offset + 2)
+          .ok_or(PeError::BufferOverflow)
+          .and_then(|bytes| bytes.try_into().map_err(|_| PeError::BufferOverflow))
+          .and_then(|bytes| Ok(u16::from_le_bytes(bytes)))
 }

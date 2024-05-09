@@ -5,6 +5,12 @@ pub struct Field<T> {
     pub size: usize,
 }
 
+impl<T> Field<T> {
+    pub fn new(value: T, offset: usize, size: usize) -> Self {
+        Field { value, offset, size }
+    }
+}
+
 impl Field<u32> {
     /// Updates the buffer at the specified offset with the new value for u32.
     pub fn update(&mut self, buffer: &mut Vec<u8>, new_value: u32) {
