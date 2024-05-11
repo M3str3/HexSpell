@@ -56,6 +56,49 @@ impl PeSection {
         self.characteristics.value & 0x00000400 != 0
     }
 
+    /// Extracts ascii strings from the section's data based on a specified minimum length.
+    /// 
+    /// # Arguments
+    /// * `buffer` - A slice of bytes from the entire PE file's buffer.
+    /// * `min_length` - The minimum length a sequence of characters must have to be considered a string.
+    ///
+    /// # Returns
+    /// A vector of strings found within this section that meet or exceed the specified minimum length.
+    /// 
+    /// # Example
+    /// ```
+    /// use hex_spell::pe::PE;
+    /// let pe = PE::parse_from_file("tests/samples/sample1.exe").unwrap();
+    /// 
+    /// let strings = pe.sections[0].extract_strings(&pe.buffer, 2);
+    /// 
+    /// for s in strings {
+    ///     println!("{}", s);
+    /// }
+    /// ```
+    pub fn extract_strings(&self, buffer: &[u8], min_length: usize) -> Vec<String> {
+        let data = buffer.get(self.pointer_to_raw_data.value as usize..self.pointer_to_raw_data.value as usize+self.size_of_raw_data.value as usize).unwrap();
+        let mut strings = Vec::new();
+        let mut current_string = Vec::new();
+
+        for &byte in data {
+            if byte.is_ascii_alphanumeric() || byte == b'_' {
+                current_string.push(byte as char);
+            } else {
+                if current_string.len() >= min_length {
+                    strings.push(current_string.iter().collect());
+                }
+                current_string.clear();
+            }
+        }
+
+        if current_string.len() >= min_length {
+            strings.push(current_string.iter().collect());
+        }
+
+        strings
+    }
+
     /// Parses a section of PE file from a buffer and the offset.
     ///
     /// ## Arguments
