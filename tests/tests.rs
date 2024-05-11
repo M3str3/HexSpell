@@ -1,7 +1,7 @@
 use std::fs;
 use toml::Value;
 
-use hex_spell::pe::{self, PE, parse_from_file };
+use hex_spell::pe::{self, PE };
 
 #[test]
 fn test_pe_parse() {
@@ -13,7 +13,7 @@ fn test_pe_parse() {
         for (key, value) in pe {
             let file_extension: &str = value.get("file_extension").and_then(|v| v.as_str()).unwrap_or("exe");
             let file_name: String = format!("tests/samples/{}.{}", key, file_extension);
-            let mut pe: PE = parse_from_file(&file_name).expect("Failed to parse PE");
+            let mut pe: PE = PE::parse_from_file(&file_name).expect("Failed to parse PE");
     
             // Getting real values from test.toml
             let architecture = value

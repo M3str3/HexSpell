@@ -6,6 +6,17 @@ use crate::field::Field;
 use crate::utils::{extract_u16, extract_u32, extract_u64};
 use crate::pe_section::PeSection;
 
+#[derive(PartialEq, Eq, Debug)]
+pub enum PEType {
+    PE32,
+    PE32Plus,
+}
+
+pub enum ImageBase {
+    Base32(u32),
+    Base64(u64),
+}
+
 enum Architecture {
     X86,
     X64,
@@ -28,16 +39,6 @@ impl Architecture {
             Architecture::Unknown => "Unknown".to_string(),
         }
     }
-}
-#[derive(PartialEq, Eq, Debug)]
-pub enum PEType {
-    PE32,
-    PE32Plus,
-}
-
-pub enum ImageBase {
-    Base32(u32),
-    Base64(u64),
 }
 
 /// Struct to define a PeFile from attr
@@ -73,8 +74,8 @@ impl PE {
     /// 
     /// # Examples
     /// ```
-    /// use hex_spell::pe::parse_from_file;
-    /// let pe_file = parse_from_file("tests/samples/sample1.exe").unwrap(); // Sample checksum has to be the correct
+    /// use hex_spell::pe::PE;
+    /// let pe_file = PE::parse_from_file("tests/samples/sample1.exe").unwrap(); // Sample checksum has to be the correct
     /// let calculed_check:u32 = pe_file.calc_checksum(); 
     /// assert_eq!(pe_file.checksum.value, calculed_check);
     /// ```
@@ -107,116 +108,113 @@ impl PE {
         checksum
     }
 
-}
 
-///------
-/// UTILS
-/// -----
-
-/// Parses a PE file from a specified file path.
-/// 
-/// # Arguments
-/// * `path` - A string slice that holds the path to the PE file.
-///
-/// # Returns
-/// A `Result` that is either a `PeFile` on success, or a `PeError` on failure.
-/// 
-/// # Example
-/// ```
-/// use hex_spell::pe::parse_from_file;
-/// let pe_file = parse_from_file("tests/samples/sample1.exe").unwrap();
-/// ```
-pub fn parse_from_file(path:&str) -> Result<PE, PeError> {
-    let data: Vec<u8> = fs::read(path).map_err(|e: std::io::Error| PeError::Io(e))?;
-    parse_from_vec(data)
-}
-
-/// Parses a PE file from a byte vector.
-///
-/// # Arguments
-/// * `buffer` - A byte vector containing the PE file data.
-///
-/// # Returns
-/// A `Result` that is either a `PeFile` on success, or a `PeError` on failure.
-///
-/// # Example
-/// ```
-/// use hex_spell::pe::parse_from_vec;
-/// let data = std::fs::read("tests/samples/sample1.exe").expect("Failed to read file");
-/// let pe_file = parse_from_vec(data).unwrap();
-/// ```
-pub fn parse_from_vec(buffer: Vec<u8>) -> Result<PE, PeError> {
-    if buffer.len() < 64 || buffer[0] != 0x4D || buffer[1] != 0x5A {
-        return Err(PeError::InvalidPeFile);
+    /// Parses a PE file from a specified file path.
+    /// 
+    /// # Arguments
+    /// * `path` - A string slice that holds the path to the PE file.
+    ///
+    /// # Returns
+    /// A `Result` that is either a `PeFile` on success, or a `PeError` on failure.
+    /// 
+    /// # Example
+    /// ```
+    /// use hex_spell::pe::PE;
+    /// let pe_file = PE::parse_from_file("tests/samples/sample1.exe").unwrap();
+    /// ```
+    pub fn parse_from_file(path:&str) -> Result<PE, PeError> {
+        let data: Vec<u8> = fs::read(path).map_err(|e: std::io::Error| PeError::Io(e))?;
+        PE::parse_from_vec(data)
     }
 
-    let e_lfanew_offset = 0x3C;
-    let pe_header_offset = extract_u32(&buffer, e_lfanew_offset)? as usize;
+    /// Parses a PE file from a byte vector.
+    ///
+    /// # Arguments
+    /// * `buffer` - A byte vector containing the PE file data.
+    ///
+    /// # Returns
+    /// A `Result` that is either a `PeFile` on success, or a `PeError` on failure.
+    ///
+    /// # Example
+    /// ```
+    /// use hex_spell::pe::PE;
+    /// let data = std::fs::read("tests/samples/sample1.exe").expect("Failed to read file");
+    /// let pe_file = PE::parse_from_vec(data).unwrap();
+    /// ```
+    pub fn parse_from_vec(buffer: Vec<u8>) -> Result<PE, PeError> {
+        if buffer.len() < 64 || buffer[0] != 0x4D || buffer[1] != 0x5A {
+            return Err(PeError::InvalidPeFile);
+        }
 
-    let optional_header_offset = pe_header_offset + 24; 
-    let optional_header_size = extract_u16(&buffer, pe_header_offset + 20)?;
-    let sections_offset = optional_header_offset + optional_header_size as usize;
-    
-    // IMAGE FILE HEADER
-    let number_of_sections = extract_u16(&buffer, pe_header_offset + 6)? as u32;
-    let architecture = Architecture::from_u16(extract_u16(&buffer, pe_header_offset + 4)?);
-    
-    let entry_point = extract_u32(&buffer, pe_header_offset + 40)?;
-    let size_of_image = extract_u32(&buffer, pe_header_offset + 80)?;
-    let checksum = extract_u32(&buffer, pe_header_offset + 88)?;
-    
-    // OPTIONAL HEADER
-    let base_of_code = extract_u32(&buffer, optional_header_offset + 20)?;
-    let base_of_data = extract_u32(&buffer, optional_header_offset + 24)?;
+        let e_lfanew_offset = 0x3C;
+        let pe_header_offset = extract_u32(&buffer, e_lfanew_offset)? as usize;
 
-    let section_alignment = extract_u32(&buffer, optional_header_offset + 32)?;
-    let file_alignment = extract_u32(&buffer, optional_header_offset + 36)?;
-    let size_of_headers = extract_u32(&buffer, optional_header_offset + 60)?;
-    let subsystem = extract_u16(&buffer, optional_header_offset + 68)?;
-    let dll_characteristics = extract_u16(&buffer, optional_header_offset + 70)?;
+        let optional_header_offset = pe_header_offset + 24; 
+        let optional_header_size = extract_u16(&buffer, pe_header_offset + 20)?;
+        let sections_offset = optional_header_offset + optional_header_size as usize;
+        
+        // IMAGE FILE HEADER
+        let number_of_sections = extract_u16(&buffer, pe_header_offset + 6)? as u32;
+        let architecture = Architecture::from_u16(extract_u16(&buffer, pe_header_offset + 4)?);
+        
+        let entry_point = extract_u32(&buffer, pe_header_offset + 40)?;
+        let size_of_image = extract_u32(&buffer, pe_header_offset + 80)?;
+        let checksum = extract_u32(&buffer, pe_header_offset + 88)?;
+        
+        // OPTIONAL HEADER
+        let base_of_code = extract_u32(&buffer, optional_header_offset + 20)?;
+        let base_of_data = extract_u32(&buffer, optional_header_offset + 24)?;
 
-    let magic = extract_u16(&buffer, optional_header_offset)?;
+        let section_alignment = extract_u32(&buffer, optional_header_offset + 32)?;
+        let file_alignment = extract_u32(&buffer, optional_header_offset + 36)?;
+        let size_of_headers = extract_u32(&buffer, optional_header_offset + 60)?;
+        let subsystem = extract_u16(&buffer, optional_header_offset + 68)?;
+        let dll_characteristics = extract_u16(&buffer, optional_header_offset + 70)?;
 
-    let pe_type = match magic {
-        0x10B => PEType::PE32,
-        0x20B => PEType::PE32Plus,
-        _ => return Err(PeError::InvalidPeFile),
-    };
+        let magic = extract_u16(&buffer, optional_header_offset)?;
 
-    let image_base = match pe_type {
-        PEType::PE32 => ImageBase::Base32(extract_u32(&buffer, optional_header_offset + 28)?),
-        PEType::PE32Plus => ImageBase::Base64(extract_u64(&buffer, optional_header_offset + 24)?),
-    };
+        let pe_type = match magic {
+            0x10B => PEType::PE32,
+            0x20B => PEType::PE32Plus,
+            _ => return Err(PeError::InvalidPeFile),
+        };
+
+        let image_base = match pe_type {
+            PEType::PE32 => ImageBase::Base32(extract_u32(&buffer, optional_header_offset + 28)?),
+            PEType::PE32Plus => ImageBase::Base64(extract_u64(&buffer, optional_header_offset + 24)?),
+        };
 
 
-    let mut sections = Vec::with_capacity(number_of_sections as usize);
-    let mut current_offset = sections_offset;
-    for _ in 0..number_of_sections {
-        let section = PeSection::parse_section(&buffer, current_offset)?;
-        sections.push(section);
-        current_offset += 40;
+        let mut sections = Vec::with_capacity(number_of_sections as usize);
+        let mut current_offset = sections_offset;
+        for _ in 0..number_of_sections {
+            let section = PeSection::parse_section(&buffer, current_offset)?;
+            sections.push(section);
+            current_offset += 40;
+        }
+
+        Ok(PE {
+            buffer,
+            entry_point: Field::new(entry_point, pe_header_offset + 40, 4),
+            size_of_image: Field::new(size_of_image, pe_header_offset + 80, 4),
+            number_of_sections: Field::new(number_of_sections, pe_header_offset + 6, 2),
+            sections,
+            checksum: Field::new(checksum, pe_header_offset + 88, 4),
+            architecture: Field::new(architecture.to_string(), pe_header_offset + 4, 2),
+            section_alignment: Field::new(section_alignment, optional_header_offset + 32, 4),
+            file_alignment: Field::new(file_alignment, optional_header_offset + 36, 4),
+            image_base: Field::new(image_base, optional_header_offset + 28,  match pe_type {
+                PEType::PE32 => 4,
+                PEType::PE32Plus => 8,
+            }),
+            base_of_code: Field::new(base_of_code, optional_header_offset + 20, 4),
+            base_of_data: Field::new(base_of_data, optional_header_offset + 24, 4),
+            subsystem: Field::new(subsystem, optional_header_offset + 68, 2),
+            dll_characteristics: Field::new(dll_characteristics, optional_header_offset + 70, 2),
+            size_of_headers: Field::new(size_of_headers, optional_header_offset + 60, 4),
+            pe_type,
+        })
     }
-
-    Ok(PE {
-        buffer,
-        entry_point: Field::new(entry_point, pe_header_offset + 40, 4),
-        size_of_image: Field::new(size_of_image, pe_header_offset + 80, 4),
-        number_of_sections: Field::new(number_of_sections, pe_header_offset + 6, 2),
-        sections,
-        checksum: Field::new(checksum, pe_header_offset + 88, 4),
-        architecture: Field::new(architecture.to_string(), pe_header_offset + 4, 2),
-        section_alignment: Field::new(section_alignment, optional_header_offset + 32, 4),
-        file_alignment: Field::new(file_alignment, optional_header_offset + 36, 4),
-        image_base: Field::new(image_base, optional_header_offset + 28,  match pe_type {
-            PEType::PE32 => 4,
-            PEType::PE32Plus => 8,
-        }),
-        base_of_code: Field::new(base_of_code, optional_header_offset + 20, 4),
-        base_of_data: Field::new(base_of_data, optional_header_offset + 24, 4),
-        subsystem: Field::new(subsystem, optional_header_offset + 68, 2),
-        dll_characteristics: Field::new(dll_characteristics, optional_header_offset + 70, 2),
-        size_of_headers: Field::new(size_of_headers, optional_header_offset + 60, 4),
-        pe_type,
-    })
 }
+
 
