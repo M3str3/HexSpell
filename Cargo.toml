@@ -5,7 +5,7 @@ authors=["Mestre <namestre3@protonmail.com>"]
 edition = "2021"
 description = "A open source lib to parse executables in Rust"
 license = "MIT"
-repository = "https://github.com/M3str3/Runic"
+repository = "https://github.com/M3str3/HexSpell"
 exclude = ["tests/*"]
 
 [dependencies]
