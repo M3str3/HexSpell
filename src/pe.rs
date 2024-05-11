@@ -41,7 +41,7 @@ pub enum ImageBase {
 }
 
 /// Struct to define a PeFile from attr
-pub struct PeFile {
+pub struct PE {
     pub buffer: Vec<u8>,
     pub entry_point: Field<u32>,
     pub size_of_image: Field<u32>,
@@ -60,7 +60,7 @@ pub struct PeFile {
     pub pe_type:PEType,
 }
 
-impl PeFile {
+impl PE {
 
     /// Write `self.buffer` on file. 
     pub fn write_file(&self, output_path: &str) -> io::Result<()> {
@@ -73,7 +73,7 @@ impl PeFile {
     /// 
     /// # Examples
     /// ```
-    /// use hex_spell::pe_file::parse_from_file;
+    /// use hex_spell::pe::parse_from_file;
     /// let pe_file = parse_from_file("tests/samples/sample1.exe").unwrap(); // Sample checksum has to be the correct
     /// let calculed_check:u32 = pe_file.calc_checksum(); 
     /// assert_eq!(pe_file.checksum.value, calculed_check);
@@ -123,10 +123,10 @@ impl PeFile {
 /// 
 /// # Example
 /// ```
-/// use hex_spell::pe_file::parse_from_file;
+/// use hex_spell::pe::parse_from_file;
 /// let pe_file = parse_from_file("tests/samples/sample1.exe").unwrap();
 /// ```
-pub fn parse_from_file(path:&str) -> Result<PeFile, PeError> {
+pub fn parse_from_file(path:&str) -> Result<PE, PeError> {
     let data: Vec<u8> = fs::read(path).map_err(|e: std::io::Error| PeError::Io(e))?;
     parse_from_vec(data)
 }
@@ -141,11 +141,11 @@ pub fn parse_from_file(path:&str) -> Result<PeFile, PeError> {
 ///
 /// # Example
 /// ```
-/// use hex_spell::pe_file::parse_from_vec;
+/// use hex_spell::pe::parse_from_vec;
 /// let data = std::fs::read("tests/samples/sample1.exe").expect("Failed to read file");
 /// let pe_file = parse_from_vec(data).unwrap();
 /// ```
-pub fn parse_from_vec(buffer: Vec<u8>) -> Result<PeFile, PeError> {
+pub fn parse_from_vec(buffer: Vec<u8>) -> Result<PE, PeError> {
     if buffer.len() < 64 || buffer[0] != 0x4D || buffer[1] != 0x5A {
         return Err(PeError::InvalidPeFile);
     }
@@ -197,7 +197,7 @@ pub fn parse_from_vec(buffer: Vec<u8>) -> Result<PeFile, PeError> {
         current_offset += 40;
     }
 
-    Ok(PeFile {
+    Ok(PE {
         buffer,
         entry_point: Field::new(entry_point, pe_header_offset + 40, 4),
         size_of_image: Field::new(size_of_image, pe_header_offset + 80, 4),

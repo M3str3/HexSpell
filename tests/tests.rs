@@ -1,19 +1,19 @@
 use std::fs;
 use toml::Value;
 
-use hex_spell::pe_file::{self, parse_from_file, PeFile};
+use hex_spell::pe::{self, PE, parse_from_file };
 
 #[test]
 fn test_pe_parse() {
     let toml_contents: String = fs::read_to_string("tests/tests.toml").expect("Failed to read tests.toml");
     let data: Value = toml_contents.parse::<Value>().expect("Failed to parse TOML");
 
-    // PE FILES (pe_file, pe_section)
+    // PE FILES (pe, pe_section)
     if let Some(pe) = data.get("pe").and_then(|v| v.as_table()) {
         for (key, value) in pe {
             let file_extension: &str = value.get("file_extension").and_then(|v| v.as_str()).unwrap_or("exe");
             let file_name: String = format!("tests/samples/{}.{}", key, file_extension);
-            let mut pe: PeFile = parse_from_file(&file_name).expect("Failed to parse PE");
+            let mut pe: PE = parse_from_file(&file_name).expect("Failed to parse PE");
     
             // Getting real values from test.toml
             let architecture = value
@@ -90,25 +90,25 @@ fn test_pe_parse() {
             assert_eq!(pe.subsystem.value, subsystem, "Subsystem does not match for {}",key);
             assert_eq!(pe.dll_characteristics.value, dll_characteristics, "DLL characteristics does not match for {}",key);
             match pe.pe_type {
-                pe_file::PEType::PE32 => {
+                pe::PEType::PE32 => {
                     let image_base = value
                         .get("image_base")
                         .and_then(|v| v.as_str())
                         .map(|s| u32::from_str_radix(s, 16).unwrap())
                         .unwrap();
                     match pe.image_base.value {
-                            pe_file::ImageBase::Base32(base) => assert_eq!(base, image_base, "[PE32] Image base does not match for {}", key),
+                            pe::ImageBase::Base32(base) => assert_eq!(base, image_base, "[PE32] Image base does not match for {}", key),
                             _ => panic!("Incorrect type for image_base, expected u32"),
                         }
                 },
-                pe_file::PEType::PE32Plus => {
+                pe::PEType::PE32Plus => {
                     let image_base = value
                         .get("image_base")
                         .and_then(|v| v.as_str())
                         .map(|s| u64::from_str_radix(s, 16).unwrap())
                         .unwrap();
                     match pe.image_base.value {
-                        pe_file::ImageBase::Base64(base) => assert_eq!(base, image_base, "[PE32+] Image base does not match for {}", key),
+                        pe::ImageBase::Base64(base) => assert_eq!(base, image_base, "[PE32+] Image base does not match for {}", key),
                         _ => panic!("Incorrect type for image_base, expected u64"),
                     }
                 }
