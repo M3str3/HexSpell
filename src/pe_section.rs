@@ -16,6 +16,46 @@ pub struct PeSection {
 }
 
 impl PeSection {
+    /// Checks if the section is executable
+    pub fn is_executable(&self) -> bool {
+        self.characteristics.value & 0x20000000 != 0
+    }
+
+    /// Checks if the section is writable
+    pub fn is_writable(&self) -> bool {
+        self.characteristics.value & 0x80000000 != 0
+    }
+
+    /// Checks if the section is readable
+    pub fn is_readable(&self) -> bool {
+        self.characteristics.value & 0x40000000 != 0
+    }
+
+    /// Checks if the section contains initialized data
+    pub fn has_initialized_data(&self) -> bool {
+        self.characteristics.value & 0x00000040 != 0
+    }
+
+    /// Checks if the section contains uninitialized data
+    pub fn has_uninitialized_data(&self) -> bool {
+        self.characteristics.value & 0x00000080 != 0
+    }
+
+    /// Checks if the section is discardable
+    pub fn is_discardable(&self) -> bool {
+        self.characteristics.value & 0x02000000 != 0
+    }
+
+    /// Checks if the section contains code
+    pub fn has_code(&self) -> bool {
+        self.characteristics.value & 0x00000020 != 0
+    }
+
+    /// Checks if the section contains thread local storage data
+    pub fn has_tls(&self) -> bool {
+        self.characteristics.value & 0x00000400 != 0
+    }
+
     /// Parses a section of PE file from a buffer and the offset.
     ///
     /// ## Arguments
