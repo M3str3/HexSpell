@@ -29,7 +29,7 @@ impl Architecture {
         }
     }
 }
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug)]
 pub enum PEType {
     PE32,
     PE32Plus,
