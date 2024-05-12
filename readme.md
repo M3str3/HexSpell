@@ -66,7 +66,7 @@ fn main() {
     print!("Old entry point: {:X} | ", pe.header.entry_point.value);
 
     // Update the entry point to a new value, on the same pe.buffer
-    pe.entry_point.update(&mut pe.buffer, 0x36D4u32);
+    pe.header.entry_point.update(&mut pe.buffer, 0x36D4u32);
 
     // Print new entry point
     print!("New entry point: {:X}", pe.header.entry_point.value);
