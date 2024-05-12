@@ -1,6 +1,6 @@
 use crate::utils::{extract_u16,extract_u32};
 use crate::field::Field;
-use crate::pe_errors::PeError;
+use crate::errors;
 
 pub struct PeSection {
     pub name: Field<String>,
@@ -107,9 +107,9 @@ impl PeSection {
     ///
     /// ## Returns
     /// A `io::Result` with PeSection
-    pub fn parse_section(buffer: &[u8], offset: usize) -> Result<Self, PeError> {
+    pub fn parse_section(buffer: &[u8], offset: usize) -> Result<Self, errors::FileParseError> {
         if buffer.len() < offset + 40 {
-            return Err(PeError::BufferOverflow);
+            return Err(errors::FileParseError::BufferOverflow);
         }
 
         let name = String::from_utf8_lossy(&buffer[offset..offset + 8]).trim_end_matches('\0').to_string();
