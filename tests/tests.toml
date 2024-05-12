@@ -31,3 +31,18 @@ size_of_headers="400"
 subsystem="3"
 dll_characteristics="0"
 
+[elf.linux]
+elf_type="3"
+e_version="1"
+e_entry="1060"
+e_phoff="64"
+e_shoff="13976"
+e_flags="0"
+e_ehsize="64"
+e_phentsize="56"
+e_phnum="13"
+e_shentsize="64"
+e_shnum="31"
+e_shstrndx="30"
+program1_p_type="6"
+
