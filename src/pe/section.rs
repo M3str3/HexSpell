@@ -68,7 +68,7 @@ impl PeSection {
     /// # Example
     /// ```
     /// use hex_spell::pe::PE;
-    /// let pe = PE::parse_from_file("tests/samples/sample1.exe").unwrap();
+    /// let pe = PE::from_file("tests/samples/sample1.exe").unwrap();
     /// 
     /// let strings = pe.sections[0].extract_strings(&pe.buffer, 2);
     /// 

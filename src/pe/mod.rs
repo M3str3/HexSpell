@@ -28,7 +28,7 @@ impl PE {
     /// # Examples
     /// ```
     /// use hex_spell::pe::PE;
-    /// let pe = PE::parse_from_file("tests/samples/sample1.exe").unwrap(); // Sample checksum has to be the correct
+    /// let pe = PE::from_file("tests/samples/sample1.exe").unwrap(); // Sample checksum has to be the correct
     /// let calculed_check:u32 = pe.calc_checksum(); 
     /// assert_eq!(pe.header.checksum.value, calculed_check);
     /// ```
@@ -73,11 +73,11 @@ impl PE {
     /// # Example
     /// ```
     /// use hex_spell::pe::PE;
-    /// let pe_file = PE::parse_from_file("tests/samples/sample1.exe").unwrap();
+    /// let pe_file = PE::from_file("tests/samples/sample1.exe").unwrap();
     /// ```
-    pub fn parse_from_file(path:&str) -> Result<PE, FileParseError> {
+    pub fn from_file(path:&str) -> Result<PE, FileParseError> {
         let data: Vec<u8> = fs::read(path).map_err(|e: std::io::Error| FileParseError::Io(e))?;
-        PE::parse_from_vec(data)
+        PE::from_buffer(data)
     }
 
     /// Parses a PE file from a byte vector.
@@ -92,9 +92,9 @@ impl PE {
     /// ```
     /// use hex_spell::pe::PE;
     /// let data = std::fs::read("tests/samples/sample1.exe").expect("Failed to read file");
-    /// let pe_file = PE::parse_from_vec(data).unwrap();
+    /// let pe_file = PE::from_buffer(data).unwrap();
     /// ```
-    pub fn parse_from_vec(buffer: Vec<u8>) -> Result<Self, FileParseError> {
+    pub fn from_buffer(buffer: Vec<u8>) -> Result<Self, FileParseError> {
         if buffer.len() < 64 || buffer[0] != 0x4D || buffer[1] != 0x5A {
             return Err(FileParseError::InvalidFileFormat);
         }
