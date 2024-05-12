@@ -7,9 +7,8 @@ description = "A open source lib to parse executables in Rust"
 license = "MIT"
 repository = "https://github.com/M3str3/HexSpell"
 exclude = ["tests/*"]
-
-[dependencies]
-thiserror = "1.0"
+keywords = ["binary", "executable", "parser", "PE", "ELF" ]
+categories = ["development-tools", "parsing"]
 
 [dev-dependencies]
 toml = "0.8.12"
