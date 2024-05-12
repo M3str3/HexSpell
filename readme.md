@@ -9,7 +9,7 @@ created in Rust, designed to parse and manipulate executable files (.exe, .dll, 
 
 ## Features
 - **Low Dependency:** Uses minimal external libraries for easy integration and maintenance
-- **PE**: Understandable PE file struct 
+- **PE & ELF parse**: Understandable PE & ELF file struct 
 - **Modify functions**: Functions to help manipulating executables
 
 
@@ -38,11 +38,11 @@ fn main() {
  
     println!("┌───────────────────────────────┐");
     println!("│ File {}\t\t\t│",                file_name);
-    println!("│ File PE Checksum: 0x{:X}\t│",   pe.checksum.value);
-    println!("│ Architecture: {}\t\t│",         pe.architecture.value);
-    println!("│ PE type: {:?}\t\t\t│",          pe.pe_type);
-    println!("│ Number of sections 0x{:X}\t│",  pe.number_of_sections.value);
-    println!("│ Size of image: 0x{:X}\t\t│",    pe.size_of_image.value);
+    println!("│ File PE Checksum: 0x{:X}\t│",   pe.header.checksum.value);
+    println!("│ Architecture: {}\t\t│",         pe.header.architecture.value);
+    println!("│ PE type: {:?}\t\t\t│",          pe.header.pe_type);
+    println!("│ Number of sections 0x{:X}\t│",  pe.header.number_of_sections.value);
+    println!("│ Size of image: 0x{:X}\t\t│",    pe.header.size_of_image.value);
     println!("└───────────────────────────────┘");
 }
 ```
@@ -63,13 +63,13 @@ fn main() {
     };
 
     // Print old entry point
-    print!("Old entry point: {:X} | ", pe.entry_point.value);
+    print!("Old entry point: {:X} | ", pe.header.entry_point.value);
 
     // Update the entry point to a new value, on the same pe.buffer
     pe.entry_point.update(&mut pe.buffer, 0x36D4u32);
 
     // Print new entry point
-    print!("New entry point: {:X}", pe.entry_point.value);
+    print!("New entry point: {:X}", pe.header.entry_point.value);
 
     // Try to write the modified PE file back to disk
     if let Err(e) = pe.write_file("file_modified.exe") {
@@ -99,9 +99,9 @@ fn main() {
     pe.buffer.splice(text_offset..text_offset + text_size, payload.iter().cloned());
 
     // Changing entry point && checksum
-    pe.entry_point.update(&mut pe.buffer, text_offset as u32);
+    pe.header.entry_point.update(&mut pe.buffer, text_offset as u32);
     let new_checksum = pe.calc_checksum();
-    pe.checksum.update(&mut pe.buffer, new_checksum);
+    pe.header.checksum.update(&mut pe.buffer, new_checksum);
 
     // Writing the output
     pe.write_file("modified.exe").expect("Failed to write modified file");
