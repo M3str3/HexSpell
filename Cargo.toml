@@ -6,6 +6,7 @@ edition = "2021"
 description = "A open source lib to parse executables in Rust"
 license = "MIT"
 repository = "https://github.com/M3str3/HexSpell"
+readme = "README.md"
 exclude = ["tests/*"]
 keywords = ["binary", "executable", "parser", "PE", "ELF" ]
 categories = ["development-tools", "parsing"]
