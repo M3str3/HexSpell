@@ -34,7 +34,7 @@ use hex_spell::pe::PE;
 
 fn main() {
     let file_name = "outt.exe";
-    let pe = PE::parse_from_file(file_name).unwrap();
+    let pe = PE::from_file(file_name).unwrap();
  
     println!("┌───────────────────────────────┐");
     println!("│ File {}\t\t\t│",                file_name);
@@ -54,7 +54,7 @@ use hex_spell::pe::PE;
 
 fn main() {
     // Attempt to parse a PE from file  
-    let mut pe = match PE::parse_from_file("file.exe") {
+    let mut pe = match PE::from_file("file.exe") {
         Ok(file) => file,
         Err(e) => {
             eprintln!("Failed to parse PE file: {}", e);
@@ -86,7 +86,7 @@ const SHELLCODE: [u8; 284] = [../*msfvenom shellcode*/..]
 
 fn main() {
     // Attempt to parse a PE from file 
-    let mut pe = PE::parse_from_file("file.exe").expect("Failed to parse file");
+    let mut pe = PE::from_file("file.exe").expect("Failed to parse file");
 
     // Section .text, generally the first one
     let text_offset = pe.sections[0].pointer_to_raw_data.value as usize;
