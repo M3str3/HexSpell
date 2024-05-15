@@ -2,6 +2,28 @@ use crate::utils::{extract_u16,extract_u32};
 use crate::field::Field;
 use crate::errors;
 
+pub enum Characteristics {
+    Executable,
+    Writeable,
+    Readable,
+    Code,
+    Discardable,
+    Tls
+}
+
+impl Characteristics {
+    pub fn to_u32(&self) -> u32{
+        match self {
+            Characteristics::Executable => 0x20000000u32,
+            Characteristics::Writeable => 0x80000000u32,
+            Characteristics::Readable => 0x40000000u32,
+            Characteristics::Code => 0x00000020u32,
+            Characteristics::Discardable => 0x02000000u32,
+            Characteristics::Tls => 0x00000400u32,
+        }
+    }
+}
+
 pub struct PeSection {
     pub name: Field<String>,
     pub virtual_size: Field<u32>,
