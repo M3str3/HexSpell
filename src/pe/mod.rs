@@ -142,7 +142,7 @@ impl PE {
         Ok(PE { buffer, header, sections })
     }
 
-    /// Generates a new section WTHOUT adding it to the PE file.
+    /// Generates a new section WITHOUT adding it to the PE file.
     /// 
     /// # Arguments
     /// * `name` - The name of the new section.
@@ -155,7 +155,7 @@ impl PE {
         let file_alignment = self.header.file_alignment.value;
         let section_alignment = self.header.section_alignment.value;
 
-        // Calcula las direcciones y tamaños de la nueva sección
+        // Calculate the new section's virtual and raw addresses and sizes
         let last_section = self.sections.last().ok_or(FileParseError::InvalidFileFormat)?;
 
         let new_section_offset = last_section.characteristics.offset + last_section.characteristics.size;
@@ -169,7 +169,7 @@ impl PE {
         let len = name_slice.len().min(8);
         name_bytes[..len].copy_from_slice(&name_slice[..len]);
 
-        // Crear la nueva sección
+        // Create the new section
         Ok(section::PeSection {
             name: Field::new(String::from_utf8_lossy(&name_bytes).to_string(), new_section_offset, 8),
             virtual_size: Field::new(virtual_size, new_section_offset + 8, 4),
@@ -197,7 +197,7 @@ impl PE {
 
         let raw_data_ptr = new_section.pointer_to_raw_data.value;
 
-        // Crear el buffer del header de la sección para ser insertado
+        // Create the section header buffer to be inserted
         let mut section_header_buffer = Vec::with_capacity(SECTION_HEADER_SIZE);
         section_header_buffer.extend_from_slice(&new_section.name.value.as_bytes()[..8]);
         section_header_buffer.extend(&new_section.virtual_size.value.to_le_bytes());
@@ -210,27 +210,27 @@ impl PE {
         section_header_buffer.extend(&new_section.number_of_linenumbers.value.to_le_bytes());
         section_header_buffer.extend(&new_section.characteristics.value.to_le_bytes());
 
-        // Asegurarse de que el buffer del header de la sección tenga exactamente 40 bytes
+        // Ensure the section header buffer is exactly 40 bytes
         assert_eq!(section_header_buffer.len(), SECTION_HEADER_SIZE);
 
-        // Añadir el shellcode al buffer
+        // Add the shellcode to the buffer
         if self.buffer.len() < raw_data_ptr as usize + new_section.size_of_raw_data.value as usize {
             self.buffer.resize(raw_data_ptr as usize + new_section.size_of_raw_data.value as usize, 0);
         }
         
-        // Inyectar el header de la nueva sección
+        // Inject the new section header
         self.buffer.splice(new_section.name.offset..new_section.name.offset + SECTION_HEADER_SIZE, section_header_buffer.iter().copied());
-        // Inyectar el nuevo código
+        // Inject the new code
         self.buffer.splice(raw_data_ptr as usize..raw_data_ptr as usize + shellcode.len(), shellcode.iter().copied());
 
-        // Actualizar los headers
+        // Update headers
         self.header.size_of_image.update(&mut self.buffer, new_section.virtual_address.value + new_section.virtual_size.value);
         self.header.number_of_sections.update(&mut self.buffer, self.header.number_of_sections.value + 1);
 
-        // Añadir la nueva sección a la estructura PE
+        // Add the new section to the PE struct
         self.sections.push(new_section);
 
-        // Calcular y actualizar el checksum
+        // Calculate and update the checksum
         let new_checksum = self.calc_checksum();
         self.header.checksum.update(&mut self.buffer, new_checksum);
 
