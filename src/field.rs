@@ -15,15 +15,7 @@ impl Field<u64> {
     /// Updates the buffer at the specified offset with the new value for u64.
     pub fn update(&mut self, buffer: &mut Vec<u8>, new_value: u64) {
         self.value = new_value;
-        let mut bytes: [u8; 8] = [0u8; 8];
-        bytes[0] = (new_value & 0xff) as u8;
-        bytes[1] = ((new_value >> 8) & 0xff) as u8;
-        bytes[2] = ((new_value >> 16) & 0xff) as u8;
-        bytes[3] = ((new_value >> 24) & 0xff) as u8;
-        bytes[4] = ((new_value >> 32) & 0xff) as u8;
-        bytes[5] = ((new_value >> 40) & 0xff) as u8;
-        bytes[6] = ((new_value >> 48) & 0xff) as u8;
-        bytes[7] = ((new_value >> 56) & 0xff) as u8;
+        let bytes = new_value.to_le_bytes(); 
         buffer[self.offset..self.offset + self.size].copy_from_slice(&bytes[..self.size]);
     }
 }
@@ -32,22 +24,15 @@ impl Field<u32> {
     /// Updates the buffer at the specified offset with the new value for u32.
     pub fn update(&mut self, buffer: &mut Vec<u8>, new_value: u32) {
         self.value = new_value;
-        let mut bytes: [u8; 4] = [0u8; 4]; 
-        bytes[0] = (new_value & 0xff) as u8;
-        bytes[1] = ((new_value >> 8) & 0xff) as u8;
-        bytes[2] = ((new_value >> 16) & 0xff) as u8;
-        bytes[3] = ((new_value >> 24) & 0xff) as u8;
+        let bytes = new_value.to_le_bytes(); 
         buffer[self.offset..self.offset + self.size].copy_from_slice(&bytes[..self.size]);
     }
 }
-
 impl Field<u16> {
     /// Updates the buffer at the specified offset with the new value for u16.
     pub fn update(&mut self, buffer: &mut Vec<u8>, new_value: u16) {
         self.value = new_value;
-        let mut bytes: [u8; 2] = [0u8; 2];  
-        bytes[0] = (new_value & 0xff) as u8;
-        bytes[1] = ((new_value >> 8) & 0xff) as u8;
+        let bytes = new_value.to_le_bytes(); 
         buffer[self.offset..self.offset + self.size].copy_from_slice(&bytes[..self.size]);
     }
 }
@@ -62,6 +47,5 @@ impl Field<String> {
         }
 
         buffer[self.offset..self.offset + bytes.len()].copy_from_slice(bytes);
-
-    }
+    } 
 }
