@@ -1,9 +1,9 @@
 [package]
 name = "hex_spell"
-version = "0.1.4"
+version = "0.1.5"
 authors=["Mestre <namestre3@protonmail.com>"]
 edition = "2021"
-description = "A open source lib to parse executables in Rust"
+description = "Moved to 'hexspell' "
 license = "MIT"
 repository = "https://github.com/M3str3/HexSpell"
 readme = "README.md"
