@@ -27,7 +27,7 @@ impl PE {
     /// 
     /// # Examples
     /// ```
-    /// use hex_spell::pe::PE;
+    /// use hexspell::pe::PE;
     /// let pe = PE::from_file("tests/samples/sample1.exe").unwrap(); // Sample checksum has to be the correct
     /// let calculed_check:u32 = pe.calc_checksum(); 
     /// assert_eq!(pe.header.checksum.value, calculed_check);
@@ -72,7 +72,7 @@ impl PE {
     /// 
     /// # Example
     /// ```
-    /// use hex_spell::pe::PE;
+    /// use hexspell::pe::PE;
     /// let pe_file = PE::from_file("tests/samples/sample1.exe").unwrap();
     /// ```
     pub fn from_file(path:&str) -> Result<PE, FileParseError> {
@@ -90,7 +90,7 @@ impl PE {
     ///
     /// # Example
     /// ```
-    /// use hex_spell::pe::PE;
+    /// use hexspell::pe::PE;
     /// let data = std::fs::read("tests/samples/sample1.exe").expect("Failed to read file");
     /// let pe_file = PE::from_buffer(data).unwrap();
     /// ```

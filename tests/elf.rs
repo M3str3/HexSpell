@@ -1,7 +1,7 @@
 use std::fs;
 use toml::Value;
 
-use hex_spell::elf;
+use hexspell::elf;
 
 #[test]
 fn test_elf_parse() {

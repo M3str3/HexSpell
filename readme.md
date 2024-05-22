@@ -1,7 +1,5 @@
 # HexSpell: The Executable Rust Parser
 
-# WARNING: THIS PROJECT HAS BEEN MOVED TO 'hexspell'
-
 ## Description
 HexSpell is an open source library 
 created in Rust, designed to parse and manipulate executable files (.exe, .dll, etc.) with minimal dependencies. The reason for this library is to deepen my knowledge about executables, their manipulation and Rust! 
@@ -19,21 +17,21 @@ created in Rust, designed to parse and manipulate executable files (.exe, .dll, 
 ## Installation
 To include HexSpell in your Rust project, add it to your dependencies with cargo:
 ```bash
-cargo add hex_spell
+cargo add hexspell
 ```
 
 or just add this line to your `Cargo.toml` 
 
 ```toml
 [dependencies]
-hex_spell = "0.1.x"
+hexspell = "0.1.x"
 ```
 ## Examples of use
 Some examples of use
 ### Display PE info
 Displaying info about a PE file
 ```rust
-use hex_spell::pe::PE;
+use hexspell::pe::PE;
 
 fn main() {
     let file_name = "outt.exe";
@@ -53,7 +51,7 @@ fn main() {
 ### Modify attributes from PE file
 Using HexSpell to change the entry point of a PE file:
 ```rust
-use hex_spell::pe::PE;
+use hexspell::pe::PE;
 
 fn main() {
     // Attempt to parse a PE from file  
@@ -84,7 +82,7 @@ fn main() {
 ### Create new section and injecting a shellcode
 Adding code in a section with its own header
 ```rust
-use hex_spell::pe::PE;
+use hexspell::pe::PE;
 
 const SHELLCODE: [u8; 284] = [../*msfvenom shellcode*/..]
 

@@ -1,7 +1,7 @@
 use std::fs;
 use toml::Value;
 
-use hex_spell::pe::{self, PE, section };
+use hexspell::pe::{self, PE, section };
 
 #[test]
 fn test_pe_parse() {
