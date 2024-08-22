@@ -47,3 +47,10 @@ e_shstrndx="30"
 program1_p_type="6"
 
 [macho.machO-OSX-x86-ls]
+magic="feedface"
+cputype="7"
+cpusubtype="3"
+filetype="2"
+ncmds="10"
+sizeofcmds="5f8"
+flags="1200085"

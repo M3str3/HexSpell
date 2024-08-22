@@ -23,12 +23,62 @@ fn test_macho_parse() {
                 file_name += &format!(".{}", file_extension);
             }
 
-            //TODO
-            let macho_file: macho::MachO =
-                macho::MachO::from_file(&file_name).expect("Error parsing MachO file");
-            for seg in macho_file.segments {
-                println!("{}", seg.name)
-            }
+            // Getting real values from test.toml
+            let macho_file: macho::MachO = macho::MachO::from_file(&file_name).expect("Error parsing MachO file");
+            
+            let magic = value
+                .get("magic")
+                .and_then(|v| v.as_str())
+                .map(|s| u32::from_str_radix(s, 16).unwrap())
+                .unwrap();
+
+            let cputype = value
+                .get("cputype")
+                .and_then(|v| v.as_str())
+                .map(|s| u32::from_str_radix(s, 16).unwrap())
+                .unwrap();
+
+            let cpusubtype = value
+                .get("cpusubtype")
+                .and_then(|v| v.as_str())
+                .map(|s| u32::from_str_radix(s, 16).unwrap())
+                .unwrap();
+
+            let filetype = value
+                .get("filetype")
+                .and_then(|v| v.as_str())
+                .map(|s| u32::from_str_radix(s, 16).unwrap())
+                .unwrap();
+
+            let ncmds = value
+                .get("ncmds")
+                .and_then(|v| v.as_str())
+                .map(|s| u32::from_str_radix(s, 16).unwrap())
+                .unwrap();
+
+            let sizeofcmds = value
+                .get("sizeofcmds")
+                .and_then(|v| v.as_str())
+                .map(|s| u32::from_str_radix(s, 16).unwrap())
+                .unwrap();
+
+            let flags = value
+                .get("flags")
+                .and_then(|v| v.as_str())
+                .map(|s| u32::from_str_radix(s, 16).unwrap())
+                .unwrap();
+
+            
+            // Testing parse params result
+            assert_eq!(macho_file.header.magic.value, magic, "macho_file.header.magic doesnt match");
+            assert_eq!(macho_file.header.cpu_type.value, cputype, "macho_file.header.cpu_type doesnt match");
+            assert_eq!(macho_file.header.cpu_subtype.value, cpusubtype, "macho_file.header.cpu_subtype doesnt match");
+            assert_eq!(macho_file.header.file_type.value, filetype, "macho_file.header.file_type doesnt match");
+            assert_eq!(macho_file.header.ncmds.value, ncmds, "macho_file.header.ncmds doesnt match");
+            assert_eq!(macho_file.header.sizeofcmds.value, sizeofcmds, "macho_file.header.sizeofcmds doesnt match");
+            assert_eq!(macho_file.header.flags.value, flags, "macho_file.header.flags doesnt match");
+      
+      
         }
     }
 }
