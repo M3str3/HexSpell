@@ -46,3 +46,4 @@ e_shnum="31"
 e_shstrndx="30"
 program1_p_type="6"
 
+[macho.machO-OSX-x86-ls]
