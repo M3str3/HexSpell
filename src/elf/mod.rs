@@ -21,7 +21,7 @@ impl ELF {
     /// Parses a ELF file from a specified file path.
     /// 
     /// # Arguments
-    /// * `path` - A string slice that holds the path to the PE file.
+    /// * `path` - A string slice that holds the path to the ELF file.
     ///
     /// # Returns
     /// A `Result` that is either a `ELF` on success, or a `FileParseError` on failure.

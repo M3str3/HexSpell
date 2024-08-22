@@ -16,7 +16,7 @@ fn test_elf_parse() {
             if file_extension != "" {
                 file_name += &format!(".{}",file_extension);
             }
-            let elf: elf::ELF = elf::ELF::from_file(&file_name).expect("HOLa");
+            let elf: elf::ELF = elf::ELF::from_file(&file_name).expect("Error parsing ELF file");
             
             let e_version = value
                 .get("e_version")
