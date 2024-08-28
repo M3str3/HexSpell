@@ -1,8 +1,21 @@
+/// HexSpell Mach-O
+/// ====================================
+/// File to perform test on Mach-O parse 
+/// 
+/// REFERENCES
+/// -----------
+/// Mach-O Structure    =>  https://book.hacktricks.xyz/macos-hardening/macos-security-and-privilege-escalation/macos-files-folders-and-binaries/universal-binaries-and-mach-o-format
+/// Mach-O Viewer       =>  https://github.com/horsicq/XMachOViewer
+/// 
+
 use std::fs;
 use toml::Value;
 
-use hexspell::macho;
+use hexspell::macho; // <-- Testing module
 
+/// ============================================
+/// Testing reading and parsing in a Mach-O file 
+/// ============================================
 #[test]
 fn test_macho_parse() {
     let toml_contents: String =
@@ -29,46 +42,45 @@ fn test_macho_parse() {
             let magic = value
                 .get("magic")
                 .and_then(|v| v.as_str())
-                .map(|s| u32::from_str_radix(s, 16).unwrap())
+                .map(|s: &str| u32::from_str_radix(s.trim_start_matches("0x"), 16).unwrap())
                 .unwrap();
 
             let cputype = value
                 .get("cputype")
                 .and_then(|v| v.as_str())
-                .map(|s| u32::from_str_radix(s, 16).unwrap())
+                .map(|s: &str| u32::from_str_radix(s.trim_start_matches("0x"), 16).unwrap())
                 .unwrap();
 
             let cpusubtype = value
                 .get("cpusubtype")
                 .and_then(|v| v.as_str())
-                .map(|s| u32::from_str_radix(s, 16).unwrap())
+                .map(|s: &str| u32::from_str_radix(s.trim_start_matches("0x"), 16).unwrap())
                 .unwrap();
 
             let filetype = value
                 .get("filetype")
                 .and_then(|v| v.as_str())
-                .map(|s| u32::from_str_radix(s, 16).unwrap())
+                .map(|s: &str| u32::from_str_radix(s.trim_start_matches("0x"), 16).unwrap())
                 .unwrap();
 
             let ncmds = value
                 .get("ncmds")
                 .and_then(|v| v.as_str())
-                .map(|s| u32::from_str_radix(s, 16).unwrap())
+                .map(|s: &str| u32::from_str_radix(s.trim_start_matches("0x"), 16).unwrap())
                 .unwrap();
 
             let sizeofcmds = value
                 .get("sizeofcmds")
                 .and_then(|v| v.as_str())
-                .map(|s| u32::from_str_radix(s, 16).unwrap())
+                .map(|s: &str| u32::from_str_radix(s.trim_start_matches("0x"), 16).unwrap())
                 .unwrap();
 
             let flags = value
                 .get("flags")
                 .and_then(|v| v.as_str())
-                .map(|s| u32::from_str_radix(s, 16).unwrap())
+                .map(|s: &str| u32::from_str_radix(s.trim_start_matches("0x"), 16).unwrap())
                 .unwrap();
 
-            
             // Testing parse params result
             assert_eq!(macho_file.header.magic.value, magic, "macho_file.header.magic doesnt match");
             assert_eq!(macho_file.header.cpu_type.value, cputype, "macho_file.header.cpu_type doesnt match");
@@ -77,8 +89,6 @@ fn test_macho_parse() {
             assert_eq!(macho_file.header.ncmds.value, ncmds, "macho_file.header.ncmds doesnt match");
             assert_eq!(macho_file.header.sizeofcmds.value, sizeofcmds, "macho_file.header.sizeofcmds doesnt match");
             assert_eq!(macho_file.header.flags.value, flags, "macho_file.header.flags doesnt match");
-      
-      
         }
     }
 }
