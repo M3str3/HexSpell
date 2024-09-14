@@ -1,0 +1,14 @@
+# HexSpell format configuration
+# Please use `cargo fmt` to format your code before committing.
+
+# General configuration
+max_width = 100                     # Maximum line width
+hard_tabs = false                   # Use spaces instead of tabs
+use_field_init_shorthand = true     # Simplify struct initializations
+newline_style = "Unix"              # Use Unix-style line endings (LF)
+
+# Function formatting
+fn_params_layout = "Tall"           # Use the "Tall" style for function parameters
+
+# Imports
+reorder_imports = true              # Reorder imports alphabetically
