@@ -1,8 +1,18 @@
 # HexSpell: The Executable Rust Parser
-
+## Table of Contents
+- [Description](#description)
+- [Features](#features)
+- [Installation](#installation)
+- [Examples of use](#examples-of-use)
+  - [Parsing PE Files](#parsing-pe-files)
+  - [Parsing ELF Files](#parsing-elf-files)
+  - [Parsing Mach-O Files](#parsing-mach-o-files)
+  - [Modify PE Attributes](#modify-pe-attributes)
+  - [Create new section and injecting a shellcode](#create-new-section-and-injecting-a-shellcode)
+- [Support or Contact](#support-or-contact)
+- [License](#license)
 ## Description
-HexSpell is an open source library 
-created in Rust, designed to parse and manipulate executable files (.exe, .dll, etc.) with minimal dependencies. The reason for this library is to deepen my knowledge about executables, their manipulation and Rust! 
+HexSpell is an open source library created in Rust, designed to parse and manipulate various types of executable files, including PE (Portable Executable), ELF (Executable and Linkable Format), and Mach-O binaries. The library is built with minimal dependencies, aiming to provide an easy-to-use and flexible tool for analyzing and modifying executables. 
 
 <p align="center">
 <img src="https://github.com/M3str3/HexSpell/assets/62236987/8d5d500a-acb1-45d0-a63e-ec610b5e5ccc" width=50% height=50% style="display: block; margin: 0 auto">
@@ -10,46 +20,117 @@ created in Rust, designed to parse and manipulate executable files (.exe, .dll, 
 
 ## Features
 - **Low Dependency:** Uses minimal external libraries for easy integration and maintenance
-- **PE & ELF parse**: Understandable PE & ELF file struct 
-- **Modify functions**: Functions to help manipulating executables
-
+- **Multi-format Support:** Parses and manipulates PE (Windows), ELF (Linux), and Mach-O (macOS) executable formats
+- **Executable Manipulation:** Modify executable attributes such as entry points, inject sections, and update headers
+- **Checksum Calculation:** Validate or update checksums of parsed files
+- **Cross-platform Support:** Provides consistent parsing and manipulation tools across multiple platforms
 
 ## Installation
-To include HexSpell in your Rust project, add it to your dependencies with cargo:
+To include HexSpell in your Rust project, add it to your dependencies with Cargo:
+
 ```bash
 cargo add hexspell
 ```
 
-or just add this line to your `Cargo.toml` 
+Or manually add this line to your `Cargo.toml`:
 
 ```toml
 [dependencies]
 hexspell = "0.1.x"
 ```
 ## Examples of use
-Some examples of use
-### Display PE info
-Displaying info about a PE file
+
+### Parsing PE Files
+HexSpell allows you to parse and display important information from PE files.
 ```rust
 use hexspell::pe::PE;
 
 fn main() {
-    let file_name = "outt.exe";
+    let file_name = "tests/samples/sample1.exe";
     let pe = PE::from_file(file_name).unwrap();
- 
-    println!("┌───────────────────────────────┐");
-    println!("│ File {}\t\t\t│",                file_name);
-    println!("│ File PE Checksum: 0x{:X}\t│",   pe.header.checksum.value);
-    println!("│ Architecture: {}\t\t│",         pe.header.architecture.value);
-    println!("│ PE type: {:?}\t\t\t│",          pe.header.pe_type);
-    println!("│ Number of sections 0x{:X}\t│",  pe.header.number_of_sections.value);
-    println!("│ Size of image: 0x{:X}\t\t│",    pe.header.size_of_image.value);
-    println!("└───────────────────────────────┘");
+
+    println!("╔════════════════════════════════════════╗");
+    println!("║ File: {:<33}║",                             file_name);
+    println!("╠════════════════════════════════════════╣");
+    println!("║ PE Checksum:          0x{:08X}       ║",    pe.header.checksum.value);
+    println!("║ Architecture:         {:<17}║",             pe.header.architecture.value);
+    println!("║ PE Type:              {:?}             ║",  pe.header.pe_type);
+    println!("║ Number of sections:   0x{:08X}       ║",    pe.header.number_of_sections.value);
+    println!("║ Size of image:        0x{:08X}       ║",    pe.header.size_of_image.value);
+    println!("╚════════════════════════════════════════╝");
 }
 ```
+#### OUTPUT
+```plain
+╔════════════════════════════════════════╗
+║ File: tests/samples/sample1.exe        ║
+╠════════════════════════════════════════╣
+║ PE Checksum:          0x00007106       ║
+║ Architecture:         x86              ║
+║ PE Type:              PE32             ║
+║ Number of sections:   0x00000008       ║
+║ Size of image:        0x0000C000       ║
+╚════════════════════════════════════════╝
+```
+### Parsing ELF Files
+You can also easily parse ELF binaries (Linux executables) with HexSpell.
+```rust
+use hexspell::elf::ELF;
 
-### Modify attributes from PE file
-Using HexSpell to change the entry point of a PE file:
+fn main() {
+    let file_name = "tests/samples/linux";
+    let elf_file = ELF::from_file("tests/samples/linux").unwrap();
+
+    println!("╔════════════════════════════════════════╗");
+    println!("║ File: {:<33}║",                             file_name);
+    println!("╠════════════════════════════════════════╣");
+    println!("║ Entry point:          0x{:08X}       ║",    elf_file.header.entry.value);
+    println!("║ Program headers:      {:<17}║",             elf_file.header.ph_num.value);
+    println!("║ Section headers:      {:<17}║",             elf_file.header.sh_num.value);
+    println!("╚════════════════════════════════════════╝");
+}
+```
+#### OUTPUT
+```plain
+╔════════════════════════════════════════╗
+║ File: tests/samples/linux              ║
+╠════════════════════════════════════════╣
+║ Entry point:          0x00001060       ║
+║ Program headers:      13               ║
+║ Section headers:      31               ║
+╚════════════════════════════════════════╝
+```
+### Parsing Mach-O Files
+Mach-O files, commonly used in macOS, can also be parsed and inspected.
+```rust
+use hexspell::macho::MachO;
+
+fn main() {
+    let file_name = "tests/samples/machO-OSX-x86-ls";
+    let macho_file = MachO::from_file(file_name).unwrap();
+
+    println!("╔════════════════════════════════════════╗");
+    println!("║ File: {:<33}║",                                 file_name);
+    println!("╠════════════════════════════════════════╣");
+    println!("║ Number of load commands: {:<14}║",              macho_file.header.ncmds.value);
+    println!("║ File type:            {:?}                ║",   macho_file.header.file_type.value);
+    println!("║ First segment name:   {:<17}║",                 macho_file.segments[0].name);
+    println!("╚════════════════════════════════════════╝");
+}
+```
+#### OUTPUT
+```plain
+╔════════════════════════════════════════╗
+║ File: tests/samples/machO-OSX-x86-ls   ║
+╠════════════════════════════════════════╣
+║ Number of load commands: 16            ║
+║ File type:            2                ║
+║ First segment name:   __PAGEZERO       ║
+╚════════════════════════════════════════╝
+```
+
+### Modify PE Attributes
+HexSpell provides utilities to modify executables, such as changing the entry point of a PE file.
 ```rust
 use hexspell::pe::PE;
 

@@ -1,5 +1,5 @@
-use std::io;
 use std::fmt;
+use std::io;
 
 #[derive(Debug)]
 pub enum FileParseError {
@@ -17,7 +17,9 @@ impl fmt::Display for FileParseError {
             FileParseError::InvalidFileFormat => write!(f, "Invalid file format."),
             FileParseError::BufferOverflow => write!(f, "Data out of bounds."),
             FileParseError::SliceConversionError => write!(f, "Error converting slice to array."),
-            FileParseError::UnsupportedFeature(feature) => write!(f, "Unsupported feature: {}", feature),
+            FileParseError::UnsupportedFeature(feature) => {
+                write!(f, "Unsupported feature: {}", feature)
+            }
         }
     }
 }
