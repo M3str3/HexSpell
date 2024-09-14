@@ -31,7 +31,7 @@ fn test_elf_parse() {
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
             let mut file_name: String = format!("tests/samples/{}", key);
-            if file_extension != "" {
+            if !file_extension.is_empty() {
                 file_name += &format!(".{}", file_extension);
             }
             let elf: elf::ELF = elf::ELF::from_file(&file_name).expect("Error parsing ELF file");
