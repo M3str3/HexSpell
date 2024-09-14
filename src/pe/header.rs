@@ -1,3 +1,5 @@
+use core::fmt;
+
 use crate::field::Field;
 
 #[derive(PartialEq, Eq, Debug)]
@@ -17,20 +19,23 @@ pub enum Architecture {
     Unknown,
 }
 
+impl fmt::Display for Architecture {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match *self {
+            Architecture::X86 => "x86",
+            Architecture::X64 => "x64",
+            Architecture::Unknown => "Unknown",
+        };
+        write!(f, "{}", s)
+    }
+}
+
 impl Architecture {
     pub fn from_u16(value: u16) -> Self {
         match value {
             0x014c => Architecture::X86,
             0x8664 => Architecture::X64,
             _ => Architecture::Unknown,
-        }
-    }
-
-    pub fn to_string(&self) -> String {
-        match *self {
-            Architecture::X86 => "x86".to_string(),
-            Architecture::X64 => "x64".to_string(),
-            Architecture::Unknown => "Unknown".to_string(),
         }
     }
 }
