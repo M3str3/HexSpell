@@ -1,10 +1,10 @@
 pub mod header;
-pub mod section;
 pub mod program;
+pub mod section;
 
+use crate::errors;
 use std::fs;
 use std::io::Read;
-use crate::errors;
 
 use header::ElfHeader;
 use program::ProgramHeader;
@@ -19,13 +19,13 @@ pub struct ELF {
 
 impl ELF {
     /// Parses a ELF file from a specified file path.
-    /// 
+    ///
     /// # Arguments
     /// * `path` - A string slice that holds the path to the ELF file.
     ///
     /// # Returns
     /// A `Result` that is either a `ELF` on success, or a `FileParseError` on failure.
-    /// 
+    ///
     /// # Example
     /// ```
     /// use hexspell::elf::ELF;
@@ -58,9 +58,24 @@ impl ELF {
         }
 
         let header = ElfHeader::parse(&buffer)?;
-        let program_headers = ProgramHeader::parse_program_headers(&buffer, header.ph_off.value, header.ph_ent_size.value, header.ph_num.value)?;
-        let section_headers = SectionHeader::parse_section_headers(&buffer, header.sh_off.value, header.sh_ent_size.value, header.sh_num.value)?;
+        let program_headers = ProgramHeader::parse_program_headers(
+            &buffer,
+            header.ph_off.value,
+            header.ph_ent_size.value,
+            header.ph_num.value,
+        )?;
+        let section_headers = SectionHeader::parse_section_headers(
+            &buffer,
+            header.sh_off.value,
+            header.sh_ent_size.value,
+            header.sh_num.value,
+        )?;
 
-        Ok(ELF { buffer, header, program_headers, section_headers })
+        Ok(ELF {
+            buffer,
+            header,
+            program_headers,
+            section_headers,
+        })
     }
 }

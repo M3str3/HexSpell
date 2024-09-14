@@ -1,6 +1,6 @@
-use crate::utils::{extract_u16,extract_u32};
-use crate::field::Field;
 use crate::errors;
+use crate::field::Field;
+use crate::utils::{extract_u16, extract_u32};
 
 pub enum Characteristics {
     Executable,
@@ -8,11 +8,11 @@ pub enum Characteristics {
     Readable,
     Code,
     Discardable,
-    Tls
+    Tls,
 }
 
 impl Characteristics {
-    pub fn to_u32(&self) -> u32{
+    pub fn to_u32(&self) -> u32 {
         match self {
             Characteristics::Executable => 0x20000000u32,
             Characteristics::Writeable => 0x80000000u32,
@@ -79,27 +79,33 @@ impl PeSection {
     }
 
     /// Extracts ascii strings from the section's data based on a specified minimum length.
-    /// 
+    ///
     /// # Arguments
     /// * `buffer` - A slice of bytes from the entire PE file's buffer.
     /// * `min_length` - The minimum length a sequence of characters must have to be considered a string.
     ///
     /// # Returns
     /// A vector of strings found within this section that meet or exceed the specified minimum length.
-    /// 
+    ///
     /// # Example
     /// ```
     /// use hexspell::pe::PE;
     /// let pe = PE::from_file("tests/samples/sample1.exe").unwrap();
-    /// 
+    ///
     /// let strings = pe.sections[0].extract_strings(&pe.buffer, 2);
-    /// 
+    ///
     /// for s in strings {
     ///     println!("{}", s);
     /// }
     /// ```
     pub fn extract_strings(&self, buffer: &[u8], min_length: usize) -> Vec<String> {
-        let data = buffer.get(self.pointer_to_raw_data.value as usize..self.pointer_to_raw_data.value as usize+self.size_of_raw_data.value as usize).unwrap();
+        let data = buffer
+            .get(
+                self.pointer_to_raw_data.value as usize
+                    ..self.pointer_to_raw_data.value as usize
+                        + self.size_of_raw_data.value as usize,
+            )
+            .unwrap();
         let mut strings = Vec::new();
         let mut current_string = Vec::new();
 
@@ -134,7 +140,9 @@ impl PeSection {
             return Err(errors::FileParseError::BufferOverflow);
         }
 
-        let name = String::from_utf8_lossy(&buffer[offset..offset + 8]).trim_end_matches('\0').to_string();
+        let name = String::from_utf8_lossy(&buffer[offset..offset + 8])
+            .trim_end_matches('\0')
+            .to_string();
         let virtual_size = extract_u32(buffer, offset + 8)?;
         let virtual_address = extract_u32(buffer, offset + 12)?;
         let size_of_raw_data = extract_u32(buffer, offset + 16)?;

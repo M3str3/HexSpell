@@ -1,5 +1,5 @@
-use crate::field::Field;
 use crate::errors;
+use crate::field::Field;
 
 #[derive(Debug)]
 pub struct ProgramHeader {
@@ -14,7 +14,12 @@ pub struct ProgramHeader {
 }
 
 impl ProgramHeader {
-    pub fn parse_program_headers(buffer: &[u8], offset: u64, size: u16, count: u16) -> Result<Vec<ProgramHeader>, errors::FileParseError> {
+    pub fn parse_program_headers(
+        buffer: &[u8],
+        offset: u64,
+        size: u16,
+        count: u16,
+    ) -> Result<Vec<ProgramHeader>, errors::FileParseError> {
         let mut headers = Vec::new();
         let start = offset as usize;
 
@@ -24,14 +29,46 @@ impl ProgramHeader {
                 return Err(errors::FileParseError::BufferOverflow);
             }
 
-            let p_type = Field::new(u32::from_le_bytes(buffer[base..base+4].try_into().unwrap()), base, 4);
-            let p_flags = Field::new(u32::from_le_bytes(buffer[base+4..base+8].try_into().unwrap()), base+4, 4);
-            let p_offset = Field::new(u64::from_le_bytes(buffer[base+8..base+16].try_into().unwrap()), base+8, 8);
-            let p_vaddr = Field::new(u64::from_le_bytes(buffer[base+16..base+24].try_into().unwrap()), base+16, 8);
-            let p_paddr = Field::new(u64::from_le_bytes(buffer[base+24..base+32].try_into().unwrap()), base+24, 8);
-            let p_filesz = Field::new(u64::from_le_bytes(buffer[base+32..base+40].try_into().unwrap()), base+32, 8);
-            let p_memsz = Field::new(u64::from_le_bytes(buffer[base+40..base+48].try_into().unwrap()), base+40, 8);
-            let p_align = Field::new(u64::from_le_bytes(buffer[base+48..base+56].try_into().unwrap()), base+48, 8);
+            let p_type = Field::new(
+                u32::from_le_bytes(buffer[base..base + 4].try_into().unwrap()),
+                base,
+                4,
+            );
+            let p_flags = Field::new(
+                u32::from_le_bytes(buffer[base + 4..base + 8].try_into().unwrap()),
+                base + 4,
+                4,
+            );
+            let p_offset = Field::new(
+                u64::from_le_bytes(buffer[base + 8..base + 16].try_into().unwrap()),
+                base + 8,
+                8,
+            );
+            let p_vaddr = Field::new(
+                u64::from_le_bytes(buffer[base + 16..base + 24].try_into().unwrap()),
+                base + 16,
+                8,
+            );
+            let p_paddr = Field::new(
+                u64::from_le_bytes(buffer[base + 24..base + 32].try_into().unwrap()),
+                base + 24,
+                8,
+            );
+            let p_filesz = Field::new(
+                u64::from_le_bytes(buffer[base + 32..base + 40].try_into().unwrap()),
+                base + 32,
+                8,
+            );
+            let p_memsz = Field::new(
+                u64::from_le_bytes(buffer[base + 40..base + 48].try_into().unwrap()),
+                base + 40,
+                8,
+            );
+            let p_align = Field::new(
+                u64::from_le_bytes(buffer[base + 48..base + 56].try_into().unwrap()),
+                base + 48,
+                8,
+            );
 
             headers.push(ProgramHeader {
                 p_type,
