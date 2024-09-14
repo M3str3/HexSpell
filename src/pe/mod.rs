@@ -254,7 +254,7 @@ impl PE {
             virtual_size: Field::new(virtual_size, new_section_offset + 8, 4),
             virtual_address: Field::new(new_section_rva, new_section_offset + 12, 4),
             size_of_raw_data: Field::new(size_of_raw_data, new_section_offset + 16, 4),
-            pointer_to_raw_data: Field::new(raw_data_ptr as u32, new_section_offset + 20, 4),
+            pointer_to_raw_data: Field::new(raw_data_ptr, new_section_offset + 20, 4),
             pointer_to_relocations: Field::new(0, new_section_offset + 24, 4),
             pointer_to_linenumbers: Field::new(0, new_section_offset + 28, 4),
             number_of_relocations: Field::new(0, new_section_offset + 32, 2),
