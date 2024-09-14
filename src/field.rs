@@ -17,7 +17,7 @@ impl<T> Field<T> {
 
 impl Field<u64> {
     /// Updates the buffer at the specified offset with the new value for u64.
-    pub fn update(&mut self, buffer: &mut Vec<u8>, new_value: u64) {
+    pub fn update(&mut self, buffer: &mut [u8], new_value: u64) {
         self.value = new_value;
         let bytes = new_value.to_le_bytes();
         buffer[self.offset..self.offset + self.size].copy_from_slice(&bytes[..self.size]);
@@ -26,7 +26,7 @@ impl Field<u64> {
 
 impl Field<u32> {
     /// Updates the buffer at the specified offset with the new value for u32.
-    pub fn update(&mut self, buffer: &mut Vec<u8>, new_value: u32) {
+    pub fn update(&mut self, buffer: &mut [u8], new_value: u32) {
         self.value = new_value;
         let bytes = new_value.to_le_bytes();
         buffer[self.offset..self.offset + self.size].copy_from_slice(&bytes[..self.size]);
@@ -34,7 +34,7 @@ impl Field<u32> {
 }
 impl Field<u16> {
     /// Updates the buffer at the specified offset with the new value for u16.
-    pub fn update(&mut self, buffer: &mut Vec<u8>, new_value: u16) {
+    pub fn update(&mut self, buffer: &mut [u8], new_value: u16) {
         self.value = new_value;
         let bytes = new_value.to_le_bytes();
         buffer[self.offset..self.offset + self.size].copy_from_slice(&bytes[..self.size]);
@@ -43,7 +43,7 @@ impl Field<u16> {
 
 impl Field<String> {
     /// Updates the buffer at the specified offset with the new UTF-8 encoded string.
-    pub fn update(&mut self, buffer: &mut Vec<u8>, new_value: &String) {
+    pub fn update(&mut self, buffer: &mut [u8], new_value: &String) {
         self.value = new_value.to_string();
         let bytes: &[u8] = self.value.as_bytes();
         if bytes.len() > self.size {
