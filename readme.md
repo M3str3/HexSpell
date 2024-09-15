@@ -110,11 +110,11 @@ fn main() {
     let macho_file = MachO::from_file(file_name).unwrap();
 
     println!("╔════════════════════════════════════════╗");
-    println!("║ File: {:<33}║",                                 file_name);
+    println!("║ File: {:<33}║",                              file_name);
     println!("╠════════════════════════════════════════╣");
-    println!("║ Number of load commands: {:<14}║",              macho_file.header.ncmds.value);
-    println!("║ File type:            {:?}                ║",   macho_file.header.file_type.value);
-    println!("║ First segment name:   {:<17}║",                 macho_file.segments[0].name);
+    println!("║ Number of load commands: {:<14}║",           macho_file.header.ncmds.value);
+    println!("║ File type:               {:?}             ║",macho_file.header.file_type.value);
+    println!("║ First segment name:      {:<14}║",           macho_file.segments[0].name);
     println!("╚════════════════════════════════════════╝");
 }
 ```
@@ -124,8 +124,8 @@ fn main() {
 ║ File: tests/samples/machO-OSX-x86-ls   ║
 ╠════════════════════════════════════════╣
 ║ Number of load commands: 16            ║
-║ File type:            2                ║
-║ First segment name:   __PAGEZERO       ║
+║ File type:               2             ║
+║ First segment name:      __PAGEZERO    ║
 ╚════════════════════════════════════════╝
 ```
 
