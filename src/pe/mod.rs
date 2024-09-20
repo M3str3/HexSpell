@@ -33,7 +33,7 @@ impl PE {
     /// assert_eq!(pe.header.checksum.value, calculed_check);
     /// ```
     pub fn calc_checksum(&self) -> u32 {
-        let mut checksum: u32 = 0;
+        let mut checksum: u64 = 0;
         let len = self.buffer.len();
         let mut i = 0;
 
@@ -46,19 +46,19 @@ impl PE {
 
             if i + 1 < len {
                 let word = u16::from_le_bytes([self.buffer[i], self.buffer[i + 1]]);
-                checksum += u32::from(word);
+                checksum += word as u64;
                 i += 2;
             } else {
-                checksum += u32::from(self.buffer[i]);
+                checksum += self.buffer[i] as u64;
                 break;
             }
         }
 
         checksum = (checksum & 0xFFFF) + (checksum >> 16);
-        checksum += len as u32;
+        checksum += len as u64;
         checksum = (checksum & 0xFFFF) + (checksum >> 16);
         checksum = (checksum & 0xFFFF) + (checksum >> 16);
-        checksum
+        checksum as u32
     }
 
     /// Parses a PE file from a specified file path.
