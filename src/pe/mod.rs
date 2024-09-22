@@ -278,9 +278,53 @@ impl PE {
     ) -> Result<(), FileParseError> {
         const SECTION_HEADER_SIZE: usize = 40;
 
-        let raw_data_ptr = new_section.pointer_to_raw_data.value;
+        // Ensure the new section fits within the current SizeOfHeaders
+        if new_section.characteristics.offset + new_section.characteristics.size
+            > self.header.size_of_headers.value as usize
+        {
+            let new_size_of_headers =
+                self.header.size_of_headers.value + SECTION_HEADER_SIZE as u32;
 
-        // Create the section header buffer to be inserted
+            // Align the new SizeOfHeaders according to the File Alignment
+            let alig_new_size_of_headers = (new_size_of_headers + self.header.file_alignment.value
+                - 1)
+                & !(self.header.file_alignment.value - 1);
+            let alig_old_size_of_headers = self.header.size_of_headers.value;
+
+            if alig_new_size_of_headers != alig_old_size_of_headers {
+                // Update the SizeOfHeaders in the PE header
+                self.header
+                    .size_of_headers
+                    .update(&mut self.buffer, alig_new_size_of_headers);
+
+                let diff = alig_new_size_of_headers as usize - alig_old_size_of_headers as usize;
+
+                if diff > 0 {
+                    self.buffer.splice(
+                        alig_old_size_of_headers as usize..alig_old_size_of_headers as usize,
+                        std::iter::repeat(0).take(diff),
+                    );
+
+                    // Move the pointer_to_raw_data for each section based on the diff in SizeOfHeaders
+                    for section in self.sections.iter_mut() {
+                        section.pointer_to_raw_data.update(
+                            &mut self.buffer,
+                            section.pointer_to_raw_data.value + diff as u32,
+                        );
+                    }
+                }
+            }
+        }
+
+        // Calculate the total buffer size with the new section
+        let raw_data_ptr = new_section.pointer_to_raw_data.value;
+        let new_total_buffer_size =
+            raw_data_ptr as usize + new_section.size_of_raw_data.value as usize;
+        if self.buffer.len() < new_total_buffer_size {
+            self.buffer.resize(new_total_buffer_size, 0);
+        }
+
+        // Insert the new section header into the buffer
         let mut section_header_buffer = Vec::with_capacity(SECTION_HEADER_SIZE);
         section_header_buffer.extend_from_slice(&new_section.name.value.as_bytes()[..8]);
         section_header_buffer.extend(&new_section.virtual_size.value.to_le_bytes());
@@ -293,41 +337,36 @@ impl PE {
         section_header_buffer.extend(&new_section.number_of_linenumbers.value.to_le_bytes());
         section_header_buffer.extend(&new_section.characteristics.value.to_le_bytes());
 
-        // Ensure the section header buffer is exactly 40 bytes
-        assert_eq!(section_header_buffer.len(), SECTION_HEADER_SIZE);
-
-        // Add the shellcode to the buffer
-        if self.buffer.len() < raw_data_ptr as usize + new_section.size_of_raw_data.value as usize {
-            self.buffer.resize(
-                raw_data_ptr as usize + new_section.size_of_raw_data.value as usize,
-                0,
-            );
-        }
-
-        // Inject the new section header
         self.buffer.splice(
             new_section.name.offset..new_section.name.offset + SECTION_HEADER_SIZE,
             section_header_buffer.iter().copied(),
         );
-        // Inject the new code
+
+        // Insert the shellcode into the new section
         self.buffer.splice(
             raw_data_ptr as usize..raw_data_ptr as usize + shellcode.len(),
             shellcode.iter().copied(),
         );
 
-        // Update headers
-        self.header.size_of_image.update(
-            &mut self.buffer,
-            new_section.virtual_address.value + new_section.virtual_size.value,
-        );
+        // Update the SizeOfImage aligned to Section Alignment
+        let new_size_of_image = (new_section.virtual_address.value
+            + new_section.virtual_size.value
+            + self.header.section_alignment.value
+            - 1)
+            & !(self.header.section_alignment.value - 1);
+        self.header
+            .size_of_image
+            .update(&mut self.buffer, new_size_of_image);
+
+        // Update the number of sections in the header
         self.header
             .number_of_sections
             .update(&mut self.buffer, self.header.number_of_sections.value + 1);
 
-        // Add the new section to the PE struct
+        // Add the new section to the PE structure
         self.sections.push(new_section);
 
-        // Calculate and update the checksum
+        // Recalculate and update the checksum
         let new_checksum = self.calc_checksum();
         self.header.checksum.update(&mut self.buffer, new_checksum);
 
