@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.0.3] - 2024-09-23
+## [0.0.3](https://github.com/M3str3/HexSpell/pull/6) - 2024-09-23
 ### Fixed
 #### PE
 - [**Bug #5**](https://github.com/M3str3/HexSpell/issues/5): Fixed overflow in the `calc_checksum` function. The `checksum` variable was previously a `u32`, which could lead to overflow during the checksum calculation in PE files. The fix now uses `u64` during the calculation to prevent overflow, but the function still returns a `u32` as expected.
