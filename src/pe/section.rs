@@ -127,11 +127,11 @@ impl PeSection {
         strings
     }
 
-    /// Parses a section of PE file from a buffer and the offset.
+    /// Parses a section of a PE file from the given buffer and offset.
     ///
     /// ## Arguments
-    /// * `buffer` - A byte vector containing the PE file data.
-    /// * `offset` - A byte vector containing the PE file data.
+    /// * `buffer` - The PE file data slice.
+    /// * `offset` - The offset within that buffer where the section header begins.
     ///
     /// ## Returns
     /// A `io::Result` with PeSection
