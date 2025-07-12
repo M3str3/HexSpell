@@ -15,7 +15,7 @@
 HexSpell is an open source library created in Rust, designed to parse and manipulate various types of executable files, including PE (Portable Executable), ELF (Executable and Linkable Format), and Mach-O binaries. The library is built with minimal dependencies, aiming to provide an easy-to-use and flexible tool for analyzing and modifying executables. 
 
 <p align="center">
-<img src="https://github.com/M3str3/HexSpell/assets/62236987/8d5d500a-acb1-45d0-a63e-ec610b5e5ccc" width=50% height=50% style="display: block; margin: 0 auto">
+<img src="https://github.com/M3str3/HexSpell/assets/62236987/8d5d500a-acb1-45d0-a63e-ec610b5e5ccc" style="display: block;width:50%;height:50%; margin: 0 auto">
 </p>
 
 ## Features
