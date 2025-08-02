@@ -12,6 +12,7 @@
 
 ### Fixed
 - In ***ELF*** & ***Mach-O*** parsers, conversion errors now propagate to `FileParseError::BufferOverflow` instead of panicking.
+- In ***PE*** section string extraction, invalid ranges now return `FileParseError::BufferOverflow` rather than panicking.
 
 ## [0.0.3](https://github.com/M3str3/HexSpell/pull/6) - 2024-09-23
 
