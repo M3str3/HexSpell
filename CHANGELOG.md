@@ -2,18 +2,16 @@
 
 ***All notable changes to this project will be documented in this file.***
 
-## [Unreleased]
+## [0.0.4](https://github.com/M3str3/HexSpell/pull/9) - 2025-08-02
 
 ### Added
 - Added testing for ***PE***, ***ELF*** & ***Mach-O*** to ensure errors are raised on invalid formats.
-
-### Changed
-- *(none yet)*
 
 ### Fixed
 - In ***ELF*** & ***Mach-O*** parsers, conversion errors now propagate to `FileParseError::BufferOverflow` instead of panicking.
 - In ***PeSection*** string extraction, invalid ranges errors now propagate to  `FileParseError::BufferOverflow` instead of panicking.
 - In ***Field*** values that exceed the attribute's limits now propagate `FileParseError::BufferOverflow` instead of panicking.
+
 
 
 ## [0.0.3](https://github.com/M3str3/HexSpell/pull/6) - 2024-09-23
