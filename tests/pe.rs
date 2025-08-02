@@ -11,6 +11,7 @@ use std::fs;
 use toml::Value;
 
 use hexspell::pe; // <-- Testing module
+use hexspell::errors::FileParseError;
 
 /// ========================================
 /// Testing reading and parsing in a PE file
@@ -277,4 +278,12 @@ fn test_pe_shellcode_injection() {
 
     pe.write_file("tests/out/modified.exe")
         .expect("[!] Error writing new PE to disk");
+}
+
+/// Parsing an invalid PE buffer should return an error
+#[test]
+fn test_pe_invalid_buffer() {
+    let buffer = vec![0u8; 10];
+    let result = pe::PE::from_buffer(buffer);
+    assert!(matches!(result, Err(FileParseError::InvalidFileFormat)));
 }

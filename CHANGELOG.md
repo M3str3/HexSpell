@@ -5,7 +5,7 @@
 ## [Unreleased]
 
 ### Added
-- *(none yet)*
+- Added testing for ***PE***, ***ELF*** & ***Mach-O*** to ensure errors are raised on invalid formats.
 
 ### Changed
 - *(none yet)*
