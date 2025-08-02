@@ -31,42 +31,74 @@ impl Segment {
                     .trim_end_matches('\0')
                     .to_string();
                 let vmaddr = Field::new(
-                    u64::from_le_bytes(buffer[offset + 24..offset + 32].try_into().unwrap()),
+                    u64::from_le_bytes(
+                        buffer[offset + 24..offset + 32]
+                            .try_into()
+                            .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                    ),
                     offset + 24,
                     8,
                 );
                 let vmsize = Field::new(
-                    u64::from_le_bytes(buffer[offset + 32..offset + 40].try_into().unwrap()),
+                    u64::from_le_bytes(
+                        buffer[offset + 32..offset + 40]
+                            .try_into()
+                            .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                    ),
                     offset + 32,
                     8,
                 );
                 let fileoff = Field::new(
-                    u64::from_le_bytes(buffer[offset + 40..offset + 48].try_into().unwrap()),
+                    u64::from_le_bytes(
+                        buffer[offset + 40..offset + 48]
+                            .try_into()
+                            .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                    ),
                     offset + 40,
                     8,
                 );
                 let filesize = Field::new(
-                    u64::from_le_bytes(buffer[offset + 48..offset + 56].try_into().unwrap()),
+                    u64::from_le_bytes(
+                        buffer[offset + 48..offset + 56]
+                            .try_into()
+                            .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                    ),
                     offset + 48,
                     8,
                 );
                 let maxprot = Field::new(
-                    u32::from_le_bytes(buffer[offset + 56..offset + 60].try_into().unwrap()),
+                    u32::from_le_bytes(
+                        buffer[offset + 56..offset + 60]
+                            .try_into()
+                            .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                    ),
                     offset + 56,
                     4,
                 );
                 let initprot = Field::new(
-                    u32::from_le_bytes(buffer[offset + 60..offset + 64].try_into().unwrap()),
+                    u32::from_le_bytes(
+                        buffer[offset + 60..offset + 64]
+                            .try_into()
+                            .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                    ),
                     offset + 60,
                     4,
                 );
                 let nsects = Field::new(
-                    u32::from_le_bytes(buffer[offset + 64..offset + 68].try_into().unwrap()),
+                    u32::from_le_bytes(
+                        buffer[offset + 64..offset + 68]
+                            .try_into()
+                            .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                    ),
                     offset + 64,
                     4,
                 );
                 let flags = Field::new(
-                    u32::from_le_bytes(buffer[offset + 68..offset + 72].try_into().unwrap()),
+                    u32::from_le_bytes(
+                        buffer[offset + 68..offset + 72]
+                            .try_into()
+                            .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                    ),
                     offset + 68,
                     4,
                 );
