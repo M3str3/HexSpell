@@ -92,20 +92,19 @@ impl PeSection {
     /// use hexspell::pe::PE;
     /// let pe = PE::from_file("tests/samples/sample1.exe").unwrap();
     ///
-    /// let strings = pe.sections[0].extract_strings(&pe.buffer, 2);
+    /// let strings = pe.sections[0].extract_strings(&pe.buffer, 2).unwrap();
     ///
     /// for s in strings {
     ///     println!("{}", s);
     /// }
     /// ```
-    pub fn extract_strings(&self, buffer: &[u8], min_length: usize) -> Vec<String> {
+    pub fn extract_strings(&self, buffer: &[u8], min_length: usize) -> Result<Vec<String>, errors::FileParseError> {
+        let start = self.pointer_to_raw_data.value as usize;
+        let end = start + self.size_of_raw_data.value as usize;
         let data = buffer
-            .get(
-                self.pointer_to_raw_data.value as usize
-                    ..self.pointer_to_raw_data.value as usize
-                        + self.size_of_raw_data.value as usize,
-            )
-            .unwrap();
+            .get(start..end)
+            .ok_or(errors::FileParseError::BufferOverflow)?;
+
         let mut strings = Vec::new();
         let mut current_string = Vec::new();
 
@@ -124,7 +123,7 @@ impl PeSection {
             strings.push(current_string.iter().collect());
         }
 
-        strings
+        Ok(strings)
     }
 
     /// Parses a section of a PE file from the given buffer and offset.

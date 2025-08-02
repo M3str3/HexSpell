@@ -11,6 +11,7 @@ use std::fs;
 use toml::Value;
 
 use hexspell::macho; // <-- Testing module
+use hexspell::errors::FileParseError;
 
 /// ============================================
 /// Testing reading and parsing in a Mach-O file
@@ -112,4 +113,12 @@ fn test_macho_parse() {
             );
         }
     }
+}
+
+/// Parsing a buffer without a valid Mach-O magic number should fail
+#[test]
+fn test_macho_invalid_buffer() {
+    let buffer = vec![0u8; 4];
+    let result = macho::MachO::from_buffer(buffer);
+    assert!(matches!(result, Err(FileParseError::InvalidFileFormat)));
 }

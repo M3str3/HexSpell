@@ -302,7 +302,7 @@ impl PE {
                 if diff > 0 {
                     self.buffer.splice(
                         alig_old_size_of_headers as usize..alig_old_size_of_headers as usize,
-                        std::iter::repeat(0).take(diff),
+                        std::iter::repeat_n(0, diff),
                     );
 
                     // Move the pointer_to_raw_data for each section based on the diff in SizeOfHeaders

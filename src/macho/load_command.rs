@@ -25,7 +25,7 @@ impl LoadCommand {
                 u32::from_le_bytes(
                     buffer[current_offset..current_offset + 4]
                         .try_into()
-                        .unwrap(),
+                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
                 ),
                 current_offset,
                 4,
@@ -34,7 +34,7 @@ impl LoadCommand {
                 u32::from_le_bytes(
                     buffer[current_offset + 4..current_offset + 8]
                         .try_into()
-                        .unwrap(),
+                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
                 ),
                 current_offset + 4,
                 4,

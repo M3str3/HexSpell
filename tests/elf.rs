@@ -11,6 +11,7 @@ use std::fs;
 use toml::Value;
 
 use hexspell::elf; // <-- Testing module
+use hexspell::errors::FileParseError;
 
 /// ==========================================
 /// Testing reading and parsing in an ELF file
@@ -314,4 +315,12 @@ fn test_elf_parse() {
             );
         }
     }
+}
+
+/// Parsing an insufficient ELF buffer should return BufferOverflow
+#[test]
+fn test_elf_invalid_buffer() {
+    let buffer = vec![0u8; 10];
+    let result = elf::ELF::from_buffer(buffer);
+    assert!(matches!(result, Err(FileParseError::BufferOverflow)));
 }

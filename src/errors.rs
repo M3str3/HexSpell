@@ -13,12 +13,12 @@ pub enum FileParseError {
 impl fmt::Display for FileParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            FileParseError::Io(err) => write!(f, "I/O error: {}", err),
+            FileParseError::Io(err) => write!(f, "I/O error: {err}"),
             FileParseError::InvalidFileFormat => write!(f, "Invalid file format."),
             FileParseError::BufferOverflow => write!(f, "Data out of bounds."),
             FileParseError::SliceConversionError => write!(f, "Error converting slice to array."),
             FileParseError::UnsupportedFeature(feature) => {
-                write!(f, "Unsupported feature: {}", feature)
+                write!(f, "Unsupported feature: {feature}")
             }
         }
     }

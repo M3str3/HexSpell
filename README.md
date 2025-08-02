@@ -148,7 +148,7 @@ fn main() {
     print!("Old entry point: {:X} | ", pe.header.entry_point.value);
 
     // Update the entry point to a new value, on the same pe.buffer
-    pe.header.entry_point.update(&mut pe.buffer, 0x36D4u32);
+    pe.header.entry_point.update(&mut pe.buffer, 0x36D4u32).unwrap();
 
     // Print new entry point
     print!("New entry point: {:X}", pe.header.entry_point.value);
@@ -184,7 +184,7 @@ fn main(){
     pe.add_section(new_section_header, shellcode.to_vec()).expect("[!] Error adding new section into PE");
 
     // Optional: Update entry point to execute our payload instead of the original code
-    pe.header.entry_point.update(&mut pe.buffer, pe.sections.last().unwrap().virtual_address.value);
+    pe.header.entry_point.update(&mut pe.buffer, pe.sections.last().unwrap().virtual_address.value).unwrap();
 
     // Write output to a new file
     pe.write_file("tests/out/modified.exe").expect("[!] Error writing new PE to disk");

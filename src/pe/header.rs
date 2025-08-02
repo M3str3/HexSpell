@@ -26,7 +26,7 @@ impl fmt::Display for Architecture {
             Architecture::X64 => "x64",
             Architecture::Unknown => "Unknown",
         };
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 

@@ -1,3 +1,5 @@
+use crate::errors::FileParseError;
+
 #[derive(Debug, Clone, Copy)]
 pub struct Field<T> {
     pub value: T,
@@ -43,13 +45,14 @@ impl Field<u16> {
 
 impl Field<String> {
     /// Updates the buffer at the specified offset with the new UTF-8 encoded string.
-    pub fn update(&mut self, buffer: &mut [u8], new_value: &String) {
+    pub fn update(&mut self, buffer: &mut [u8], new_value: &String) -> Result<(), FileParseError> {
         self.value = new_value.to_string();
         let bytes: &[u8] = self.value.as_bytes();
         if bytes.len() > self.size {
-            panic!("New string value exceeds the allocated field size.");
+            return Err(FileParseError::BufferOverflow);
         }
 
         buffer[self.offset..self.offset + bytes.len()].copy_from_slice(bytes);
+        Ok(())
     }
 }

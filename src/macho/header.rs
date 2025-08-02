@@ -19,33 +19,77 @@ impl MachHeader {
             return Err(errors::FileParseError::BufferOverflow);
         }
 
-        let magic = Field::new(u32::from_le_bytes(buffer[0..4].try_into().unwrap()), 0, 4);
-        let cpu_type = Field::new(u32::from_le_bytes(buffer[4..8].try_into().unwrap()), 4, 4);
-        let cpu_subtype = Field::new(u32::from_le_bytes(buffer[8..12].try_into().unwrap()), 8, 4);
+        let magic = Field::new(
+            u32::from_le_bytes(
+                buffer[0..4]
+                    .try_into()
+                    .map_err(|_| errors::FileParseError::BufferOverflow)?,
+            ),
+            0,
+            4,
+        );
+        let cpu_type = Field::new(
+            u32::from_le_bytes(
+                buffer[4..8]
+                    .try_into()
+                    .map_err(|_| errors::FileParseError::BufferOverflow)?,
+            ),
+            4,
+            4,
+        );
+        let cpu_subtype = Field::new(
+            u32::from_le_bytes(
+                buffer[8..12]
+                    .try_into()
+                    .map_err(|_| errors::FileParseError::BufferOverflow)?,
+            ),
+            8,
+            4,
+        );
         let file_type = Field::new(
-            u32::from_le_bytes(buffer[12..16].try_into().unwrap()),
+            u32::from_le_bytes(
+                buffer[12..16]
+                    .try_into()
+                    .map_err(|_| errors::FileParseError::BufferOverflow)?,
+            ),
             12,
             4,
         );
         let ncmds = Field::new(
-            u32::from_le_bytes(buffer[16..20].try_into().unwrap()),
+            u32::from_le_bytes(
+                buffer[16..20]
+                    .try_into()
+                    .map_err(|_| errors::FileParseError::BufferOverflow)?,
+            ),
             16,
             4,
         );
         let sizeofcmds = Field::new(
-            u32::from_le_bytes(buffer[20..24].try_into().unwrap()),
+            u32::from_le_bytes(
+                buffer[20..24]
+                    .try_into()
+                    .map_err(|_| errors::FileParseError::BufferOverflow)?,
+            ),
             20,
             4,
         );
         let flags = Field::new(
-            u32::from_le_bytes(buffer[24..28].try_into().unwrap()),
+            u32::from_le_bytes(
+                buffer[24..28]
+                    .try_into()
+                    .map_err(|_| errors::FileParseError::BufferOverflow)?,
+            ),
             24,
             4,
         );
 
         let reserved: Option<Field<u32>> = if buffer.len() >= 32 {
             Some(Field::new(
-                u32::from_le_bytes(buffer[28..32].try_into().unwrap()),
+                u32::from_le_bytes(
+                    buffer[28..32]
+                        .try_into()
+                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                ),
                 28,
                 4,
             ))
