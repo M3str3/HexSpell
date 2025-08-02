@@ -32,52 +32,92 @@ impl SectionHeader {
             }
 
             let sh_name = Field::new(
-                u32::from_le_bytes(buffer[base..base + 4].try_into().unwrap()),
+                u32::from_le_bytes(
+                    buffer[base..base + 4]
+                        .try_into()
+                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                ),
                 base,
                 4,
             );
             let sh_type = Field::new(
-                u32::from_le_bytes(buffer[base + 4..base + 8].try_into().unwrap()),
+                u32::from_le_bytes(
+                    buffer[base + 4..base + 8]
+                        .try_into()
+                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                ),
                 base + 4,
                 4,
             );
             let sh_flags = Field::new(
-                u64::from_le_bytes(buffer[base + 8..base + 16].try_into().unwrap()),
+                u64::from_le_bytes(
+                    buffer[base + 8..base + 16]
+                        .try_into()
+                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                ),
                 base + 8,
                 8,
             );
             let sh_addr = Field::new(
-                u64::from_le_bytes(buffer[base + 16..base + 24].try_into().unwrap()),
+                u64::from_le_bytes(
+                    buffer[base + 16..base + 24]
+                        .try_into()
+                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                ),
                 base + 16,
                 8,
             );
             let sh_offset = Field::new(
-                u64::from_le_bytes(buffer[base + 24..base + 32].try_into().unwrap()),
+                u64::from_le_bytes(
+                    buffer[base + 24..base + 32]
+                        .try_into()
+                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                ),
                 base + 24,
                 8,
             );
             let sh_size = Field::new(
-                u64::from_le_bytes(buffer[base + 32..base + 40].try_into().unwrap()),
+                u64::from_le_bytes(
+                    buffer[base + 32..base + 40]
+                        .try_into()
+                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                ),
                 base + 32,
                 8,
             );
             let sh_link = Field::new(
-                u32::from_le_bytes(buffer[base + 40..base + 44].try_into().unwrap()),
+                u32::from_le_bytes(
+                    buffer[base + 40..base + 44]
+                        .try_into()
+                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                ),
                 base + 40,
                 4,
             );
             let sh_info = Field::new(
-                u32::from_le_bytes(buffer[base + 44..base + 48].try_into().unwrap()),
+                u32::from_le_bytes(
+                    buffer[base + 44..base + 48]
+                        .try_into()
+                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                ),
                 base + 44,
                 4,
             );
             let sh_addralign = Field::new(
-                u64::from_le_bytes(buffer[base + 48..base + 56].try_into().unwrap()),
+                u64::from_le_bytes(
+                    buffer[base + 48..base + 56]
+                        .try_into()
+                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                ),
                 base + 48,
                 8,
             );
             let sh_entsize = Field::new(
-                u64::from_le_bytes(buffer[base + 56..base + 64].try_into().unwrap()),
+                u64::from_le_bytes(
+                    buffer[base + 56..base + 64]
+                        .try_into()
+                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                ),
                 base + 56,
                 8,
             );

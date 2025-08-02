@@ -30,42 +30,74 @@ impl ProgramHeader {
             }
 
             let p_type = Field::new(
-                u32::from_le_bytes(buffer[base..base + 4].try_into().unwrap()),
+                u32::from_le_bytes(
+                    buffer[base..base + 4]
+                        .try_into()
+                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                ),
                 base,
                 4,
             );
             let p_flags = Field::new(
-                u32::from_le_bytes(buffer[base + 4..base + 8].try_into().unwrap()),
+                u32::from_le_bytes(
+                    buffer[base + 4..base + 8]
+                        .try_into()
+                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                ),
                 base + 4,
                 4,
             );
             let p_offset = Field::new(
-                u64::from_le_bytes(buffer[base + 8..base + 16].try_into().unwrap()),
+                u64::from_le_bytes(
+                    buffer[base + 8..base + 16]
+                        .try_into()
+                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                ),
                 base + 8,
                 8,
             );
             let p_vaddr = Field::new(
-                u64::from_le_bytes(buffer[base + 16..base + 24].try_into().unwrap()),
+                u64::from_le_bytes(
+                    buffer[base + 16..base + 24]
+                        .try_into()
+                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                ),
                 base + 16,
                 8,
             );
             let p_paddr = Field::new(
-                u64::from_le_bytes(buffer[base + 24..base + 32].try_into().unwrap()),
+                u64::from_le_bytes(
+                    buffer[base + 24..base + 32]
+                        .try_into()
+                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                ),
                 base + 24,
                 8,
             );
             let p_filesz = Field::new(
-                u64::from_le_bytes(buffer[base + 32..base + 40].try_into().unwrap()),
+                u64::from_le_bytes(
+                    buffer[base + 32..base + 40]
+                        .try_into()
+                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                ),
                 base + 32,
                 8,
             );
             let p_memsz = Field::new(
-                u64::from_le_bytes(buffer[base + 40..base + 48].try_into().unwrap()),
+                u64::from_le_bytes(
+                    buffer[base + 40..base + 48]
+                        .try_into()
+                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                ),
                 base + 40,
                 8,
             );
             let p_align = Field::new(
-                u64::from_le_bytes(buffer[base + 48..base + 56].try_into().unwrap()),
+                u64::from_le_bytes(
+                    buffer[base + 48..base + 56]
+                        .try_into()
+                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
+                ),
                 base + 48,
                 8,
             );

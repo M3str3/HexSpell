@@ -58,7 +58,11 @@ impl MachO {
         }
 
         let magic = match buffer.get(0..4) {
-            Some(bytes) => u32::from_le_bytes(bytes.try_into().unwrap()),
+            Some(bytes) => u32::from_le_bytes(
+                bytes
+                    .try_into()
+                    .map_err(|_| errors::FileParseError::BufferOverflow)?,
+            ),
             None => return Err(errors::FileParseError::BufferOverflow),
         };
 
