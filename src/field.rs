@@ -53,6 +53,9 @@ impl Field<String> {
         }
 
         buffer[self.offset..self.offset + bytes.len()].copy_from_slice(bytes);
+        if bytes.len() < self.size {
+            buffer[self.offset + bytes.len()..self.offset + self.size].fill(0u8);
+        }
         Ok(())
     }
 }

@@ -2,6 +2,14 @@
 
 ***All notable changes to this project will be documented in this file.***
 
+## [Unreleased] 
+
+### Added
+- Added comprehensive tests for `Field<String>` covering padding, exact fit, overflow, and UTF-8 multibyte handling in section names (see `tests/general.rs`).
+
+### Fixed
+- Improved `Field<String>::update` to ensure that when the new value is shorter than the field size, any leftover bytes are properly zeroed out, and UTF-8 multibyte strings are handled correctly. In previous versions, some bytes from the old value could remain in the binary.
+
 ## [0.0.4](https://github.com/M3str3/HexSpell/pull/9) - 2025-08-02
 
 ### Added
