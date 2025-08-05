@@ -10,8 +10,8 @@
 use std::fs;
 use toml::Value;
 
-use hexspell::pe; // <-- Testing module
 use hexspell::errors::FileParseError;
+use hexspell::pe; // <-- Testing module
 
 /// ========================================
 /// Testing reading and parsing in a PE file

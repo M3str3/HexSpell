@@ -98,7 +98,11 @@ impl PeSection {
     ///     println!("{}", s);
     /// }
     /// ```
-    pub fn extract_strings(&self, buffer: &[u8], min_length: usize) -> Result<Vec<String>, errors::FileParseError> {
+    pub fn extract_strings(
+        &self,
+        buffer: &[u8],
+        min_length: usize,
+    ) -> Result<Vec<String>, errors::FileParseError> {
         let start = self.pointer_to_raw_data.value as usize;
         let end = start + self.size_of_raw_data.value as usize;
         let data = buffer

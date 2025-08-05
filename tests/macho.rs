@@ -10,8 +10,8 @@
 use std::fs;
 use toml::Value;
 
-use hexspell::macho; // <-- Testing module
 use hexspell::errors::FileParseError;
+use hexspell::macho; // <-- Testing module
 
 /// ============================================
 /// Testing reading and parsing in a Mach-O file
