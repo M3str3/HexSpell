@@ -4,7 +4,7 @@ pub mod section;
 
 use crate::errors;
 use std::fs;
-use std::io::Read;
+use std::io::{self, Read, Write};
 
 use header::ElfHeader;
 use program::ProgramHeader;
@@ -18,6 +18,13 @@ pub struct ELF {
 }
 
 impl ELF {
+    /// Write `self.buffer` to disk.
+    pub fn write_file(&self, output_path: &str) -> io::Result<()> {
+        let mut file = fs::File::create(output_path)?;
+        file.write_all(&self.buffer)?;
+        Ok(())
+    }
+
     /// Parses a ELF file from a specified file path.
     ///
     /// # Arguments

@@ -278,6 +278,8 @@ fn test_pe_shellcode_injection() {
 
     pe.write_file("tests/out/modified.exe")
         .expect("[!] Error writing new PE to disk");
+
+    std::fs::remove_file("tests/out/modified.exe").expect("[!] Failed to remove modified PE file");
 }
 
 /// Parsing an invalid PE buffer should return an error
@@ -286,4 +288,27 @@ fn test_pe_invalid_buffer() {
     let buffer = vec![0u8; 10];
     let result = pe::PE::from_buffer(buffer);
     assert!(matches!(result, Err(FileParseError::InvalidFileFormat)));
+}
+
+#[test]
+fn test_pe_write_file() {
+    let pe = pe::PE::from_file("tests/samples/sample1.exe").expect("Error parsing PE file");
+    let tmp_path = std::env::temp_dir().join("pe_write_test.exe");
+    pe.write_file(tmp_path.to_str().unwrap())
+        .expect("Error writing PE to disk");
+
+    let original =
+        std::fs::read("tests/samples/sample1.exe").expect("[!] Failed to read original PE file");
+    let written = std::fs::read(&tmp_path).expect("[!] Failed to read written PE file");
+    assert_eq!(original, written);
+
+    std::fs::remove_file(tmp_path).expect("[!] Failed to remove written PE file");
+}
+
+#[test]
+fn test_pe_write_file_fail() {
+    let pe = pe::PE::from_file("tests/samples/sample1.exe").expect("Error parsing PE file");
+    let invalid_path = std::env::temp_dir().join("nonexistent_dir").join("pe.bin");
+    let result = pe.write_file(invalid_path.to_str().unwrap());
+    assert!(result.is_err());
 }

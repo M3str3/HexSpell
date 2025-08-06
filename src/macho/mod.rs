@@ -4,7 +4,7 @@ pub mod segment;
 
 use crate::errors;
 use std::fs;
-use std::io::Read;
+use std::io::{self, Read, Write};
 
 use header::MachHeader;
 use load_command::LoadCommand;
@@ -18,6 +18,13 @@ pub struct MachO {
 }
 
 impl MachO {
+    /// Write `self.buffer` to disk.
+    pub fn write_file(&self, output_path: &str) -> io::Result<()> {
+        let mut file = fs::File::create(output_path)?;
+        file.write_all(&self.buffer)?;
+        Ok(())
+    }
+
     /// Parses a MachO from a specified file path.
     ///
     /// # Arguments

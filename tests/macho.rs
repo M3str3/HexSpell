@@ -122,3 +122,33 @@ fn test_macho_invalid_buffer() {
     let result = macho::MachO::from_buffer(buffer);
     assert!(matches!(result, Err(FileParseError::InvalidFileFormat)));
 }
+
+/// Ensure writing a Mach-O file to disk succeeds and preserves contents
+#[test]
+fn test_macho_write_file() {
+    let macho_file = macho::MachO::from_file("tests/samples/machO-OSX-x86-ls")
+        .expect("Error parsing MachO file");
+    let tmp_path = std::env::temp_dir().join("macho_write_test");
+    macho_file
+        .write_file(tmp_path.to_str().unwrap())
+        .expect("Error writing MachO to disk");
+
+    let original = std::fs::read("tests/samples/machO-OSX-x86-ls")
+        .expect("[!] Failed to read original MachO file");
+    let written = std::fs::read(&tmp_path).expect("[!] Failed to read written MachO file");
+    assert_eq!(original, written);
+
+    std::fs::remove_file(tmp_path).expect("[!] Failed to remove written MachO file");
+}
+
+/// Writing a Mach-O file to a non-existent directory should fail
+#[test]
+fn test_macho_write_file_fail() {
+    let macho_file = macho::MachO::from_file("tests/samples/machO-OSX-x86-ls")
+        .expect("Error parsing MachO file");
+    let invalid_path = std::env::temp_dir()
+        .join("nonexistent_dir")
+        .join("macho.bin");
+    let result = macho_file.write_file(invalid_path.to_str().unwrap());
+    assert!(result.is_err());
+}

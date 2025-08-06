@@ -405,3 +405,28 @@ fn test_elf_big_endian_parse() {
     assert_eq!(elf.section_headers[0].sh_flags.value, 0xAAA);
     assert_eq!(elf.section_headers[0].sh_offset.value, 184);
 }
+
+/// Ensure writing an ELF file to disk succeeds and preserves contents
+#[test]
+fn test_elf_write_file() {
+    let elf = elf::ELF::from_file("tests/samples/linux").expect("Error parsing ELF file");
+    let tmp_path = std::env::temp_dir().join("elf_write_test");
+    elf.write_file(tmp_path.to_str().unwrap())
+        .expect("Error writing ELF to disk");
+
+    let original =
+        std::fs::read("tests/samples/linux").expect("[!] Failed to read original ELF file");
+    let written = std::fs::read(&tmp_path).expect("[!] Failed to read written ELF file");
+    assert_eq!(original, written);
+
+    std::fs::remove_file(tmp_path).expect("[!] Failed to remove written ELF file");
+}
+
+/// Writing an ELF file to a non-existent directory should fail
+#[test]
+fn test_elf_write_file_fail() {
+    let elf = elf::ELF::from_file("tests/samples/linux").expect("Error parsing ELF file");
+    let invalid_path = std::env::temp_dir().join("nonexistent_dir").join("elf.bin");
+    let result = elf.write_file(invalid_path.to_str().unwrap());
+    assert!(result.is_err());
+}
