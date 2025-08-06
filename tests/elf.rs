@@ -324,3 +324,84 @@ fn test_elf_invalid_buffer() {
     let result = elf::ELF::from_buffer(buffer);
     assert!(matches!(result, Err(FileParseError::BufferOverflow)));
 }
+
+/// Parsing a buffer with an invalid ELF magic should return InvalidFileFormat
+#[test]
+fn test_elf_invalid_magic() {
+    let mut buffer = vec![0u8; 64];
+    buffer[0..4].copy_from_slice(b"BAD!");
+    let result = elf::ELF::from_buffer(buffer);
+    assert!(matches!(result, Err(FileParseError::InvalidFileFormat)));
+}
+
+/// Parsing a buffer with an unsupported endianness should return InvalidFileFormat
+#[test]
+fn test_elf_invalid_endianness() {
+    let mut buffer = vec![0u8; 64];
+    buffer[0..4].copy_from_slice(&[0x7F, b'E', b'L', b'F']);
+    buffer[5] = 3; // Invalid endianness identifier
+    let result = elf::ELF::from_buffer(buffer);
+    assert!(matches!(result, Err(FileParseError::InvalidFileFormat)));
+}
+
+/// Parsing a big-endian ELF buffer should succeed and read values correctly
+#[test]
+fn test_elf_big_endian_parse() {
+    let mut buffer = vec![0u8; 64 + 56 + 64];
+
+    // e_ident
+    buffer[0..4].copy_from_slice(&[0x7F, b'E', b'L', b'F']);
+    buffer[4] = 2; // ELFCLASS64
+    buffer[5] = 2; // Big endian
+    buffer[6] = 1; // ELF version
+
+    // ELF header fields
+    buffer[16..18].copy_from_slice(&2u16.to_be_bytes()); // e_type
+    buffer[18..20].copy_from_slice(&0x003Eu16.to_be_bytes()); // e_machine
+    buffer[20..24].copy_from_slice(&1u32.to_be_bytes()); // e_version
+    buffer[24..32].copy_from_slice(&0x1122334455667788u64.to_be_bytes()); // e_entry
+    buffer[32..40].copy_from_slice(&64u64.to_be_bytes()); // e_phoff
+    buffer[40..48].copy_from_slice(&120u64.to_be_bytes()); // e_shoff
+    buffer[48..52].copy_from_slice(&0u32.to_be_bytes()); // e_flags
+    buffer[52..54].copy_from_slice(&64u16.to_be_bytes()); // e_ehsize
+    buffer[54..56].copy_from_slice(&56u16.to_be_bytes()); // e_phentsize
+    buffer[56..58].copy_from_slice(&1u16.to_be_bytes()); // e_phnum
+    buffer[58..60].copy_from_slice(&64u16.to_be_bytes()); // e_shentsize
+    buffer[60..62].copy_from_slice(&1u16.to_be_bytes()); // e_shnum
+    buffer[62..64].copy_from_slice(&0u16.to_be_bytes()); // e_shstrndx
+
+    // Program header at offset 64
+    let ph = 64;
+    buffer[ph..ph + 4].copy_from_slice(&1u32.to_be_bytes()); // p_type
+    buffer[ph + 4..ph + 8].copy_from_slice(&5u32.to_be_bytes()); // p_flags
+    buffer[ph + 8..ph + 16].copy_from_slice(&0x111u64.to_be_bytes()); // p_offset
+    buffer[ph + 16..ph + 24].copy_from_slice(&0x222u64.to_be_bytes()); // p_vaddr
+    buffer[ph + 24..ph + 32].copy_from_slice(&0x333u64.to_be_bytes()); // p_paddr
+    buffer[ph + 32..ph + 40].copy_from_slice(&0x444u64.to_be_bytes()); // p_filesz
+    buffer[ph + 40..ph + 48].copy_from_slice(&0x555u64.to_be_bytes()); // p_memsz
+    buffer[ph + 48..ph + 56].copy_from_slice(&8u64.to_be_bytes()); // p_align
+
+    // Section header at offset 120
+    let sh = 120;
+    buffer[sh..sh + 4].copy_from_slice(&1u32.to_be_bytes()); // sh_name
+    buffer[sh + 4..sh + 8].copy_from_slice(&1u32.to_be_bytes()); // sh_type
+    buffer[sh + 8..sh + 16].copy_from_slice(&0xAAAu64.to_be_bytes()); // sh_flags
+    buffer[sh + 16..sh + 24].copy_from_slice(&0xBBBu64.to_be_bytes()); // sh_addr
+    buffer[sh + 24..sh + 32].copy_from_slice(&184u64.to_be_bytes()); // sh_offset
+    buffer[sh + 32..sh + 40].copy_from_slice(&0x10u64.to_be_bytes()); // sh_size
+    buffer[sh + 40..sh + 44].copy_from_slice(&0u32.to_be_bytes()); // sh_link
+    buffer[sh + 44..sh + 48].copy_from_slice(&0u32.to_be_bytes()); // sh_info
+    buffer[sh + 48..sh + 56].copy_from_slice(&1u64.to_be_bytes()); // sh_addralign
+    buffer[sh + 56..sh + 64].copy_from_slice(&0u64.to_be_bytes()); // sh_entsize
+
+    let elf = elf::ELF::from_buffer(buffer).expect("Failed to parse big-endian ELF");
+
+    assert!(matches!(
+        elf.header.endianness,
+        elf::header::Endianness::Big
+    ));
+    assert_eq!(elf.program_headers[0].p_type.value, 1);
+    assert_eq!(elf.program_headers[0].p_offset.value, 0x111);
+    assert_eq!(elf.section_headers[0].sh_flags.value, 0xAAA);
+    assert_eq!(elf.section_headers[0].sh_offset.value, 184);
+}

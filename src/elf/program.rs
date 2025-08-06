@@ -1,3 +1,4 @@
+use super::header::Endianness;
 use crate::errors;
 use crate::field::Field;
 
@@ -19,6 +20,7 @@ impl ProgramHeader {
         offset: u64,
         size: u16,
         count: u16,
+        endianness: Endianness,
     ) -> Result<Vec<ProgramHeader>, errors::FileParseError> {
         let mut headers = Vec::new();
         let start = offset as usize;
@@ -29,78 +31,40 @@ impl ProgramHeader {
                 return Err(errors::FileParseError::BufferOverflow);
             }
 
-            let p_type: Field<u32> = Field::new(
-                u32::from_le_bytes(
-                    buffer[base..base + 4]
-                        .try_into()
-                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
-                ),
-                base,
-                4,
-            );
-            let p_flags: Field<u32> = Field::new(
-                u32::from_le_bytes(
-                    buffer[base + 4..base + 8]
-                        .try_into()
-                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
-                ),
-                base + 4,
-                4,
-            );
-            let p_offset: Field<u64> = Field::new(
-                u64::from_le_bytes(
-                    buffer[base + 8..base + 16]
-                        .try_into()
-                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
-                ),
-                base + 8,
-                8,
-            );
-            let p_vaddr: Field<u64> = Field::new(
-                u64::from_le_bytes(
-                    buffer[base + 16..base + 24]
-                        .try_into()
-                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
-                ),
-                base + 16,
-                8,
-            );
-            let p_paddr: Field<u64> = Field::new(
-                u64::from_le_bytes(
-                    buffer[base + 24..base + 32]
-                        .try_into()
-                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
-                ),
-                base + 24,
-                8,
-            );
-            let p_filesz: Field<u64> = Field::new(
-                u64::from_le_bytes(
-                    buffer[base + 32..base + 40]
-                        .try_into()
-                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
-                ),
-                base + 32,
-                8,
-            );
-            let p_memsz: Field<u64> = Field::new(
-                u64::from_le_bytes(
-                    buffer[base + 40..base + 48]
-                        .try_into()
-                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
-                ),
-                base + 40,
-                8,
-            );
-            let p_align: Field<u64> = Field::new(
-                u64::from_le_bytes(
-                    buffer[base + 48..base + 56]
-                        .try_into()
-                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
-                ),
-                base + 48,
-                8,
-            );
+            let read_u32 = |slice: &[u8]| -> Result<u32, errors::FileParseError> {
+                let arr: [u8; 4] = slice
+                    .try_into()
+                    .map_err(|_| errors::FileParseError::BufferOverflow)?;
+                Ok(match endianness {
+                    Endianness::Little => u32::from_le_bytes(arr),
+                    Endianness::Big => u32::from_be_bytes(arr),
+                })
+            };
+            let read_u64 = |slice: &[u8]| -> Result<u64, errors::FileParseError> {
+                let arr: [u8; 8] = slice
+                    .try_into()
+                    .map_err(|_| errors::FileParseError::BufferOverflow)?;
+                Ok(match endianness {
+                    Endianness::Little => u64::from_le_bytes(arr),
+                    Endianness::Big => u64::from_be_bytes(arr),
+                })
+            };
+
+            let p_type: Field<u32> = Field::new(read_u32(&buffer[base..base + 4])?, base, 4);
+            let p_flags: Field<u32> =
+                Field::new(read_u32(&buffer[base + 4..base + 8])?, base + 4, 4);
+            let p_offset: Field<u64> =
+                Field::new(read_u64(&buffer[base + 8..base + 16])?, base + 8, 8);
+            let p_vaddr: Field<u64> =
+                Field::new(read_u64(&buffer[base + 16..base + 24])?, base + 16, 8);
+            let p_paddr: Field<u64> =
+                Field::new(read_u64(&buffer[base + 24..base + 32])?, base + 24, 8);
+            let p_filesz: Field<u64> =
+                Field::new(read_u64(&buffer[base + 32..base + 40])?, base + 32, 8);
+            let p_memsz: Field<u64> =
+                Field::new(read_u64(&buffer[base + 40..base + 48])?, base + 40, 8);
+            let p_align: Field<u64> =
+                Field::new(read_u64(&buffer[base + 48..base + 56])?, base + 48, 8);
 
             headers.push(ProgramHeader {
                 p_type,

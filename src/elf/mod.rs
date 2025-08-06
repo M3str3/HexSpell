@@ -63,12 +63,14 @@ impl ELF {
             header.ph_off.value,
             header.ph_ent_size.value,
             header.ph_num.value,
+            header.endianness,
         )?;
         let section_headers = SectionHeader::parse_section_headers(
             &buffer,
             header.sh_off.value,
             header.sh_ent_size.value,
             header.sh_num.value,
+            header.endianness,
         )?;
 
         Ok(ELF {

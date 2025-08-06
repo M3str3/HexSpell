@@ -6,6 +6,8 @@
 
 ### Added
 - Added comprehensive tests for `Field<String>` covering padding, exact fit, overflow, and UTF-8 multibyte handling in section names (see `tests/general.rs`).
+- Detect ***ELF*** endianness from header and parse program and section headers with the appropriate byte order.
+- Added tests for valid and invalid ELF headers to ensure endianness is handled correctly.
 
 ### Fixed
 - Improved `Field<String>::update` to ensure that when the new value is shorter than the field size, any leftover bytes are properly zeroed out, and UTF-8 multibyte strings are handled correctly. In previous versions, some bytes from the old value could remain in the binary.
