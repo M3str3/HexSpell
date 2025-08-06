@@ -9,6 +9,8 @@
 - Added tests for valid and invalid ***ELF*** headers to ensure endianness is handled correctly.
 - Added `write_file` method for ***ELF*** and ***Mach-O*** formats to mirror existing ***PE*** functionality, providing a consistent read/write interface across all formats.
 - Added tests for successful and failing writes for ***PE***, ***ELF*** and ***Mach-O*** files.
+- Detect ***Mach-O*** endianness from the header and parse load commands and segments with the appropriate byte order, including tests for valid and invalid big-endian headers.
+- Support parsing ***FAT*** Mach-O binaries and add tests for little-endian and FAT headers.
 
 ### Fixed
 - Improved `Field<String>::update` to ensure that when the new value is shorter than the field size, any leftover bytes are properly zeroed out, and UTF-8 multibyte strings are handled correctly. In previous versions, some bytes from the old value could remain in the binary.

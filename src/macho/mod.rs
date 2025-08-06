@@ -6,7 +6,7 @@ use crate::errors;
 use std::fs;
 use std::io::{self, Read, Write};
 
-use header::MachHeader;
+use header::{Endianness, MachHeader};
 use load_command::LoadCommand;
 use segment::Segment;
 
@@ -64,18 +64,83 @@ impl MachO {
             return Err(errors::FileParseError::BufferOverflow);
         }
 
-        let magic = match buffer.get(0..4) {
-            Some(bytes) => u32::from_le_bytes(
-                bytes
-                    .try_into()
-                    .map_err(|_| errors::FileParseError::BufferOverflow)?,
-            ),
-            None => return Err(errors::FileParseError::BufferOverflow),
-        };
+        let magic_bytes: [u8; 4] = buffer
+            .get(0..4)
+            .ok_or(errors::FileParseError::BufferOverflow)?
+            .try_into()
+            .map_err(|_| errors::FileParseError::BufferOverflow)?;
 
-        let header_size = match magic {
-            0xFEEDFACE => 28, // Mach-O 32-bit
-            0xFEEDFACF => 32, // Mach-O 64-bit
+        let magic_be = u32::from_be_bytes(magic_bytes);
+        let magic_le = u32::from_le_bytes(magic_bytes);
+
+        // Handle FAT (Universal) binaries by parsing the first architecture
+        if let Some((fat_endianness, is_64)) = match magic_be {
+            // TODO: There may be a more elegant way to do this.
+            0xCAFEBABE => Some((Endianness::Big, false)),
+            0xCAFEBABF => Some((Endianness::Big, true)),
+            _ => match magic_le {
+                0xCAFEBABE => Some((Endianness::Little, false)),
+                0xCAFEBABF => Some((Endianness::Little, true)),
+                _ => None,
+            },
+        } {
+            let read_u32 = |off: usize| -> Result<u32, errors::FileParseError> {
+                let bytes: [u8; 4] = buffer
+                    .get(off..off + 4)
+                    .ok_or(errors::FileParseError::BufferOverflow)?
+                    .try_into()
+                    .map_err(|_| errors::FileParseError::BufferOverflow)?;
+                Ok(match fat_endianness {
+                    Endianness::Little => u32::from_le_bytes(bytes),
+                    Endianness::Big => u32::from_be_bytes(bytes),
+                })
+            };
+
+            let read_u64 = |off: usize| -> Result<u64, errors::FileParseError> {
+                let bytes: [u8; 8] = buffer
+                    .get(off..off + 8)
+                    .ok_or(errors::FileParseError::BufferOverflow)?
+                    .try_into()
+                    .map_err(|_| errors::FileParseError::BufferOverflow)?;
+                Ok(match fat_endianness {
+                    Endianness::Little => u64::from_le_bytes(bytes),
+                    Endianness::Big => u64::from_be_bytes(bytes),
+                })
+            };
+
+            let nfat_arch = read_u32(4)? as usize;
+            let arch_size = if is_64 { 32 } else { 20 };
+            if nfat_arch == 0 || buffer.len() < 8 + arch_size * nfat_arch {
+                return Err(errors::FileParseError::BufferOverflow);
+            }
+
+            let offset = if is_64 {
+                read_u64(8 + 8)? as usize
+            } else {
+                read_u32(8 + 8)? as usize
+            };
+            let size = if is_64 {
+                read_u64(8 + 16)? as usize
+            } else {
+                read_u32(8 + 12)? as usize
+            };
+
+            if buffer.len() < offset + size {
+                return Err(errors::FileParseError::BufferOverflow);
+            }
+
+            let inner = buffer
+                .get(offset..offset + size)
+                .ok_or(errors::FileParseError::BufferOverflow)?
+                .to_vec();
+            return MachO::from_buffer(inner);
+        }
+
+        let (header_size, endianness) = match magic_le {
+            0xFEEDFACE => (28, Endianness::Little), // Mach-O 32-bit LE
+            0xFEEDFACF => (32, Endianness::Little), // Mach-O 64-bit LE
+            0xCEFAEDFE => (28, Endianness::Big),    // Mach-O 32-bit BE
+            0xCFFAEDFE => (32, Endianness::Big),    // Mach-O 64-bit BE
             _ => return Err(errors::FileParseError::InvalidFileFormat),
         };
 
@@ -83,7 +148,7 @@ impl MachO {
             return Err(errors::FileParseError::BufferOverflow);
         }
 
-        let header = MachHeader::parse(&buffer)?;
+        let header = MachHeader::parse(&buffer, endianness)?;
 
         let load_commands_offset = header_size;
 
@@ -91,9 +156,13 @@ impl MachO {
             return Err(errors::FileParseError::BufferOverflow);
         }
 
-        let load_commands =
-            LoadCommand::parse_load_commands(&buffer, load_commands_offset, header.ncmds.value)?;
-        let segments = Segment::parse_segments(&buffer, &load_commands)?;
+        let load_commands = LoadCommand::parse_load_commands(
+            &buffer,
+            load_commands_offset,
+            header.ncmds.value,
+            endianness,
+        )?;
+        let segments = Segment::parse_segments(&buffer, &load_commands, endianness)?;
 
         Ok(MachO {
             buffer,

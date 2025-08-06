@@ -1,3 +1,4 @@
+use super::header::Endianness;
 use super::load_command::LoadCommand;
 use crate::errors;
 use crate::field::Field;
@@ -19,6 +20,7 @@ impl Segment {
     pub fn parse_segments(
         buffer: &[u8],
         load_commands: &[LoadCommand],
+        endianness: Endianness,
     ) -> Result<Vec<Self>, errors::FileParseError> {
         let mut segments = Vec::new();
 
@@ -30,78 +32,39 @@ impl Segment {
                 let name = String::from_utf8_lossy(&buffer[offset + 8..offset + 24])
                     .trim_end_matches('\0')
                     .to_string();
-                let vmaddr = Field::new(
-                    u64::from_le_bytes(
-                        buffer[offset + 24..offset + 32]
-                            .try_into()
-                            .map_err(|_| errors::FileParseError::BufferOverflow)?,
-                    ),
-                    offset + 24,
-                    8,
-                );
-                let vmsize = Field::new(
-                    u64::from_le_bytes(
-                        buffer[offset + 32..offset + 40]
-                            .try_into()
-                            .map_err(|_| errors::FileParseError::BufferOverflow)?,
-                    ),
-                    offset + 32,
-                    8,
-                );
-                let fileoff = Field::new(
-                    u64::from_le_bytes(
-                        buffer[offset + 40..offset + 48]
-                            .try_into()
-                            .map_err(|_| errors::FileParseError::BufferOverflow)?,
-                    ),
-                    offset + 40,
-                    8,
-                );
-                let filesize = Field::new(
-                    u64::from_le_bytes(
-                        buffer[offset + 48..offset + 56]
-                            .try_into()
-                            .map_err(|_| errors::FileParseError::BufferOverflow)?,
-                    ),
-                    offset + 48,
-                    8,
-                );
-                let maxprot = Field::new(
-                    u32::from_le_bytes(
-                        buffer[offset + 56..offset + 60]
-                            .try_into()
-                            .map_err(|_| errors::FileParseError::BufferOverflow)?,
-                    ),
-                    offset + 56,
-                    4,
-                );
-                let initprot = Field::new(
-                    u32::from_le_bytes(
-                        buffer[offset + 60..offset + 64]
-                            .try_into()
-                            .map_err(|_| errors::FileParseError::BufferOverflow)?,
-                    ),
-                    offset + 60,
-                    4,
-                );
-                let nsects = Field::new(
-                    u32::from_le_bytes(
-                        buffer[offset + 64..offset + 68]
-                            .try_into()
-                            .map_err(|_| errors::FileParseError::BufferOverflow)?,
-                    ),
-                    offset + 64,
-                    4,
-                );
-                let flags = Field::new(
-                    u32::from_le_bytes(
-                        buffer[offset + 68..offset + 72]
-                            .try_into()
-                            .map_err(|_| errors::FileParseError::BufferOverflow)?,
-                    ),
-                    offset + 68,
-                    4,
-                );
+
+                let read_u32 = |off: usize| -> Result<u32, errors::FileParseError> {
+                    let bytes: [u8; 4] = buffer
+                        .get(off..off + 4)
+                        .ok_or(errors::FileParseError::BufferOverflow)?
+                        .try_into()
+                        .map_err(|_| errors::FileParseError::BufferOverflow)?;
+                    Ok(match endianness {
+                        Endianness::Little => u32::from_le_bytes(bytes),
+                        Endianness::Big => u32::from_be_bytes(bytes),
+                    })
+                };
+
+                let read_u64 = |off: usize| -> Result<u64, errors::FileParseError> {
+                    let bytes: [u8; 8] = buffer
+                        .get(off..off + 8)
+                        .ok_or(errors::FileParseError::BufferOverflow)?
+                        .try_into()
+                        .map_err(|_| errors::FileParseError::BufferOverflow)?;
+                    Ok(match endianness {
+                        Endianness::Little => u64::from_le_bytes(bytes),
+                        Endianness::Big => u64::from_be_bytes(bytes),
+                    })
+                };
+
+                let vmaddr = Field::new(read_u64(offset + 24)?, offset + 24, 8);
+                let vmsize = Field::new(read_u64(offset + 32)?, offset + 32, 8);
+                let fileoff = Field::new(read_u64(offset + 40)?, offset + 40, 8);
+                let filesize = Field::new(read_u64(offset + 48)?, offset + 48, 8);
+                let maxprot = Field::new(read_u32(offset + 56)?, offset + 56, 4);
+                let initprot = Field::new(read_u32(offset + 60)?, offset + 60, 4);
+                let nsects = Field::new(read_u32(offset + 64)?, offset + 64, 4);
+                let flags = Field::new(read_u32(offset + 68)?, offset + 68, 4);
 
                 segments.push(Segment {
                     name,
