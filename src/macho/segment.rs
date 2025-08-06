@@ -1,6 +1,6 @@
+use super::load_command::LoadCommand;
 use crate::errors;
 use crate::field::Field;
-use crate::macho::load_command::LoadCommand;
 
 #[derive(Debug)]
 pub struct Segment {

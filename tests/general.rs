@@ -1,11 +1,10 @@
 use hexspell::errors::FileParseError;
-use hexspell::pe;
 use hexspell::field::Field;
+use hexspell::pe;
 
 // Support function
 fn load_section_name_field() -> (Vec<u8>, Field<String>) {
-    let pe = pe::PE::from_file("tests/samples/sample1.exe")
-        .expect("Cannot open the PE");
+    let pe = pe::PE::from_file("tests/samples/sample1.exe").expect("Cannot open the PE");
     let buffer_clone = pe.buffer.clone();
     let field = pe.sections[0].name.clone();
     (buffer_clone, field)

@@ -1,6 +1,6 @@
+use super::header::Endianness;
 use crate::errors;
 use crate::field::Field;
-use super::header::Endianness;
 
 #[derive(Debug)]
 pub struct SectionHeader {
