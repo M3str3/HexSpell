@@ -11,6 +11,49 @@ fn load_section_name_field() -> (Vec<u8>, Field<String>) {
 }
 
 #[test]
+fn test_field_u32_value_bounds() {
+    let mut buffer = [0u8; 3];
+    let mut field = Field::new(0u32, 0, 3);
+    field.update(&mut buffer, 0x00ABCDEFu32).unwrap();
+    assert_eq!(
+        &buffer,
+        &0x00ABCDEFu32.to_le_bytes()[..3],
+        "u32 bytes were not written correctly",
+    );
+
+    let err = field.update(&mut buffer, 0x01000000u32).unwrap_err();
+    assert!(matches!(err, FileParseError::ValueTooLarge));
+}
+
+#[test]
+fn test_field_u16_value_bounds() {
+    let mut buffer = [0u8; 1];
+    let mut field = Field::new(0u16, 0, 1);
+    field.update(&mut buffer, 0x7Fu16).unwrap();
+    assert_eq!(buffer[0], 0x7Fu8, "u16 byte was not written correctly");
+
+    let err = field.update(&mut buffer, 0x1FFu16).unwrap_err();
+    assert!(matches!(err, FileParseError::ValueTooLarge));
+}
+
+#[test]
+fn test_field_u64_value_bounds() {
+    let mut buffer = [0u8; 7];
+    let mut field = Field::new(0u64, 0, 7);
+    field.update(&mut buffer, 0x00DEADBEEFCAFEu64).unwrap();
+    assert_eq!(
+        &buffer,
+        &0x00DEADBEEFCAFEu64.to_le_bytes()[..7],
+        "u64 bytes were not written correctly",
+    );
+
+    let err = field
+        .update(&mut buffer, 0x0100000000000000u64)
+        .unwrap_err();
+    assert!(matches!(err, FileParseError::ValueTooLarge));
+}
+
+#[test]
 fn test_padding_shorter() {
     let (mut buffer, mut name_field) = load_section_name_field();
     let new_name = ".t".to_string();

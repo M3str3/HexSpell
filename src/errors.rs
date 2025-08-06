@@ -6,6 +6,7 @@ pub enum FileParseError {
     Io(io::Error),
     InvalidFileFormat,
     BufferOverflow,
+    ValueTooLarge,
     SliceConversionError,
     UnsupportedFeature(String),
 }
@@ -16,6 +17,7 @@ impl fmt::Display for FileParseError {
             FileParseError::Io(err) => write!(f, "I/O error: {err}"),
             FileParseError::InvalidFileFormat => write!(f, "Invalid file format."),
             FileParseError::BufferOverflow => write!(f, "Data out of bounds."),
+            FileParseError::ValueTooLarge => write!(f, "Value exceeds field size."),
             FileParseError::SliceConversionError => write!(f, "Error converting slice to array."),
             FileParseError::UnsupportedFeature(feature) => {
                 write!(f, "Unsupported feature: {feature}")

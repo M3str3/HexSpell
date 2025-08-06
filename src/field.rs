@@ -19,27 +19,51 @@ impl<T> Field<T> {
 
 impl Field<u64> {
     /// Updates the buffer at the specified offset with the new value for u64.
-    pub fn update(&mut self, buffer: &mut [u8], new_value: u64) {
+    pub fn update(&mut self, buffer: &mut [u8], new_value: u64) -> Result<(), FileParseError> {
+        if self.size < std::mem::size_of::<u64>() {
+            let bits = (self.size * 8) as u32;
+            if (new_value >> bits) != 0 {
+                return Err(FileParseError::ValueTooLarge);
+            }
+        }
+
         self.value = new_value;
         let bytes = new_value.to_le_bytes();
         buffer[self.offset..self.offset + self.size].copy_from_slice(&bytes[..self.size]);
+        Ok(())
     }
 }
 
 impl Field<u32> {
     /// Updates the buffer at the specified offset with the new value for u32.
-    pub fn update(&mut self, buffer: &mut [u8], new_value: u32) {
+    pub fn update(&mut self, buffer: &mut [u8], new_value: u32) -> Result<(), FileParseError> {
+        if self.size < std::mem::size_of::<u32>() {
+            let bits = (self.size * 8) as u32;
+            if (new_value >> bits) != 0 {
+                return Err(FileParseError::ValueTooLarge);
+            }
+        }
+
         self.value = new_value;
         let bytes = new_value.to_le_bytes();
         buffer[self.offset..self.offset + self.size].copy_from_slice(&bytes[..self.size]);
+        Ok(())
     }
 }
 impl Field<u16> {
     /// Updates the buffer at the specified offset with the new value for u16.
-    pub fn update(&mut self, buffer: &mut [u8], new_value: u16) {
+    pub fn update(&mut self, buffer: &mut [u8], new_value: u16) -> Result<(), FileParseError> {
+        if self.size < std::mem::size_of::<u16>() {
+            let bits = (self.size * 8) as u32;
+            if (new_value >> bits) != 0 {
+                return Err(FileParseError::ValueTooLarge);
+            }
+        }
+
         self.value = new_value;
         let bytes = new_value.to_le_bytes();
         buffer[self.offset..self.offset + self.size].copy_from_slice(&bytes[..self.size]);
+        Ok(())
     }
 }
 

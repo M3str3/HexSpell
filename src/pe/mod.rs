@@ -295,7 +295,7 @@ impl PE {
                 // Update the SizeOfHeaders in the PE header
                 self.header
                     .size_of_headers
-                    .update(&mut self.buffer, alig_new_size_of_headers);
+                    .update(&mut self.buffer, alig_new_size_of_headers)?;
 
                 let diff = alig_new_size_of_headers as usize - alig_old_size_of_headers as usize;
 
@@ -310,7 +310,7 @@ impl PE {
                         section.pointer_to_raw_data.update(
                             &mut self.buffer,
                             section.pointer_to_raw_data.value + diff as u32,
-                        );
+                        )?;
                     }
                 }
             }
@@ -356,19 +356,21 @@ impl PE {
             & !(self.header.section_alignment.value - 1);
         self.header
             .size_of_image
-            .update(&mut self.buffer, new_size_of_image);
+            .update(&mut self.buffer, new_size_of_image)?;
 
         // Update the number of sections in the header
         self.header
             .number_of_sections
-            .update(&mut self.buffer, self.header.number_of_sections.value + 1);
+            .update(&mut self.buffer, self.header.number_of_sections.value + 1)?;
 
         // Add the new section to the PE structure
         self.sections.push(new_section);
 
         // Recalculate and update the checksum
         let new_checksum = self.calc_checksum();
-        self.header.checksum.update(&mut self.buffer, new_checksum);
+        self.header
+            .checksum
+            .update(&mut self.buffer, new_checksum)?;
 
         Ok(())
     }

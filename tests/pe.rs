@@ -206,7 +206,10 @@ fn test_pe_parse() {
 
             // Updating params
             let new_entry: u32 = 0x32EDu32;
-            pe.header.entry_point.update(&mut pe.buffer, new_entry);
+            pe.header
+                .entry_point
+                .update(&mut pe.buffer, new_entry)
+                .unwrap();
             assert_eq!(
                 pe.header.entry_point.value, new_entry,
                 "Entry point didnt changed"
@@ -271,10 +274,13 @@ fn test_pe_shellcode_injection() {
 
     pe.add_section(new_section_header, shellcode.to_vec())
         .expect("[!] Error adding new section into PE");
-    pe.header.entry_point.update(
-        &mut pe.buffer,
-        pe.sections.last().unwrap().virtual_address.value,
-    );
+    pe.header
+        .entry_point
+        .update(
+            &mut pe.buffer,
+            pe.sections.last().unwrap().virtual_address.value,
+        )
+        .unwrap();
 
     pe.write_file("tests/out/modified.exe")
         .expect("[!] Error writing new PE to disk");
