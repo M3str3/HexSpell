@@ -12,16 +12,17 @@
 - [Support or Contact](#support-or-contact)
 - [License](#license)
 ## Description
-HexSpell is an open source library created in Rust, designed to parse and manipulate various types of executable files, including PE (Portable Executable), ELF (Executable and Linkable Format), and Mach-O binaries. The library is built with minimal dependencies, aiming to provide an easy-to-use and flexible tool for analyzing and modifying executables. 
+HexSpell is an open source library created in Rust, designed to parse and manipulate various types of executable files, including PE (Portable Executable), ELF (Executable and Linkable Format), and Mach-O binaries. The library is built without dependencies, with the aim of providing an easy-to-use and flexible tool for developers to analyse and modify executables.
 
 <p align="center">
 <img src="https://github.com/M3str3/HexSpell/assets/62236987/8d5d500a-acb1-45d0-a63e-ec610b5e5ccc" style="display: block;width:50%;height:50%; margin: 0 auto">
 </p>
 
 ## Features
-- **Low Dependency:** Uses minimal external libraries for easy integration and maintenance
-- **Multi-format Support:** Parses and manipulates PE (Windows), ELF (Linux), and Mach-O (macOS) executable formats
-- **Executable Manipulation:** Modify executable attributes such as entry points, inject sections, and update headers
+- **No Dependency:** The library is built entirely without dependencies, making it lightweight and easy to maintain. 
+- **Multi-format Support:** Parses and manipulates PE (Windows), ELF (Linux), and Mach-O (macOS) formats, including FAT Mach-O binaries
+- **Automatic Endianness Handling:** Detects and respects ELF and Mach-O endianness during parsing
+- **Executable Manipulation:** Modify executable attributes such as entry points, inject sections, update headers, and write changes back to disk using `write_file`
 - **Checksum Calculation:** Validate or update checksums of parsed files
 - **Cross-platform Support:** Provides consistent parsing and manipulation tools across multiple platforms
 
@@ -87,6 +88,7 @@ fn main() {
     println!("║ Entry point:          0x{:08X}       ║",    elf_file.header.entry.value);
     println!("║ Program headers:      {:<17}║",             elf_file.header.ph_num.value);
     println!("║ Section headers:      {:<17}║",             elf_file.header.sh_num.value);
+    println!("║ Endianness:           {:?}             ║",  elf_file.header.endianness);
     println!("╚════════════════════════════════════════╝");
 }
 ```
@@ -98,6 +100,7 @@ fn main() {
 ║ Entry point:          0x00001060       ║
 ║ Program headers:      13               ║
 ║ Section headers:      31               ║
+║ Endianness:           Little           ║
 ╚════════════════════════════════════════╝
 ```
 ### Parsing Mach-O Files
@@ -113,7 +116,8 @@ fn main() {
     println!("║ File: {:<33}║",                              file_name);
     println!("╠════════════════════════════════════════╣");
     println!("║ Number of load commands: {:<14}║",           macho_file.header.ncmds.value);
-    println!("║ File type:               {:?}             ║",macho_file.header.file_type.value);
+    println!("║ File type:               {:?}             ║", macho_file.header.file_type.value);
+    println!("║ Endianness:              {:?}             ║", macho_file.header.endianness);
     println!("║ First segment name:      {:<14}║",           macho_file.segments[0].name);
     println!("╚════════════════════════════════════════╝");
 }
@@ -125,6 +129,7 @@ fn main() {
 ╠════════════════════════════════════════╣
 ║ Number of load commands: 16            ║
 ║ File type:               2             ║
+║ Endianness:              Little        ║
 ║ First segment name:      __PAGEZERO    ║
 ╚════════════════════════════════════════╝
 ```
