@@ -1,3 +1,11 @@
+//! Types and parsers for Mach-O load commands.
+//!
+//! Load commands describe the layout of the rest of the file, including
+//! segment mappings and metadata such as symbol tables. This module offers
+//! an iterator over the command stream that yields typed [`LoadCommand`]
+//! values, performing bounds checks and handling both little- and
+//! big-endian variants.
+
 use super::header::Endianness;
 use crate::errors;
 use crate::field::Field;

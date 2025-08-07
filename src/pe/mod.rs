@@ -1,3 +1,16 @@
+//! Tools for working with the Windows Portable Executable format.
+//!
+//! The [`PE`] type loads an executable into memory, parses its DOS and
+//! NT headers, and exposes section information through strongly typed
+//! structures. Fields that can be altered are wrapped in [`Field`] so the
+//! original buffer can be updated in place.
+//!
+//! In addition to read/modify support, this module offers convenience
+//! helpers like [`PE::calc_checksum`] for computing the file checksum and
+//! [`PE::write_file`] for persisting changes. The implementation is not a
+//! complete re-creation of the PE spec but aims to cover the portions
+//! commonly needed when experimenting with binaries.
+
 use std::fs;
 use std::io::{self, Write};
 

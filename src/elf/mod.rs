@@ -1,3 +1,15 @@
+//! Utilities for parsing and rewriting ELF binaries.
+//!
+//! The [`ELF`] type encapsulates a binary loaded from disk and provides
+//! access to its file header, program headers, and section headers. Each
+//! part of the format is parsed lazily into strongly typed structures so
+//! that values can be inspected or modified before being written back.
+//!
+//! While HexSpell only supports a subset of the ELF specification, the
+//! API is intentionally designed to mirror the standard and remain easy
+//! to extend. This makes it suitable for experiments, teaching purposes,
+//! or light-weight patching tasks.
+
 pub mod header;
 pub mod program;
 pub mod section;

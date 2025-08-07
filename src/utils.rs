@@ -1,3 +1,11 @@
+//! Helper routines for safely reading integers from byte slices.
+//!
+//! Many parts of the crate need to interpret raw data at specific offsets.
+//! The functions provided here centralize that logic, performing bounds
+//! checks and converting little‑endian byte sequences into native Rust
+//! integers. Errors are reported using [`FileParseError`], allowing callers
+//! to bubble failures up without panicking.
+
 use crate::errors::FileParseError;
 
 pub fn extract_u64(buffer: &[u8], offset: usize) -> Result<u64, FileParseError> {

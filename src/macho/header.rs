@@ -1,3 +1,10 @@
+//! Core structures describing the Mach-O header.
+//!
+//! The header identifies CPU architecture, file type and endianness for a
+//! binary. Each field is wrapped in [`Field`](crate::field::Field) to ease
+//! patching and the module provides helper routines for detecting the
+//! correct [`Endianness`] when parsing additional data from the file.
+
 use crate::errors;
 use crate::field::Field;
 

@@ -1,3 +1,7 @@
+/// General tests for shared utilities
+/// ==================================
+/// Verifies common functionality such as `Field` updates and error
+/// propagation that apply across binary formats.
 use hexspell::errors::FileParseError;
 use hexspell::field::Field;
 use hexspell::pe;

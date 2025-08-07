@@ -1,3 +1,10 @@
+//! Error types shared across the crate.
+//!
+//! Binary parsing is prone to a variety of failures ranging from truncated
+//! data to unsupported features. The [`FileParseError`] enum captures these
+//! cases in a single place so that all modules can communicate problems in a
+//! consistent manner. For convenience a `Result` alias is provided as well.
+
 use std::fmt;
 use std::io;
 

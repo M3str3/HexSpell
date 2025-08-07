@@ -1,3 +1,12 @@
+//! Definitions for the various headers that make up a PE file.
+//!
+//! The structs in this module map directly onto the layout described in
+//! Microsoft's PE/COFF specification. Each numeric field is represented
+//! as a [`Field`](crate::field::Field) so it can be patched without
+//! recalculating offsets manually. Only a subset of the optional header is
+//! currently modeled, but the design allows for extensions as new use
+//! cases arise.
+
 use core::fmt;
 
 use crate::field::Field;

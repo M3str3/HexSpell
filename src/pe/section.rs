@@ -1,3 +1,12 @@
+//! Structures and helpers for working with PE sections.
+//!
+//! A [`PeSection`] represents the data directory entry describing a
+//! section of the binary. This module is responsible for decoding the
+//! 8-byte name field, exposing characteristic flags in a type-safe manner,
+//! and providing access to raw offsets for low level editing. The
+//! implementation favors correctness over exhaustiveness and can be
+//! extended as additional flags or metadata become relevant.
+
 use crate::errors;
 use crate::field::Field;
 use crate::utils::{extract_u16, extract_u32};

@@ -1,3 +1,12 @@
+//! Parsing utilities for ELF program headers.
+//!
+//! Program headers describe how each segment of the binary is to be
+//! loaded into memory. The functions here iterate over the header table,
+//! honoring the file's endianness and returning high level
+//! [`ProgramHeader`] values that expose offsets, permissions and sizes.
+//! These structures can then be patched and written back using `Field`
+//! semantics.
+
 use super::header::Endianness;
 use crate::errors;
 use crate::field::Field;

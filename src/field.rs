@@ -1,3 +1,10 @@
+//! Abstraction for editable fields inside binary buffers.
+//!
+//! Many binary structures store numeric or string values at fixed offsets.
+//! The [`Field`] type pairs such a value with its location and size in the
+//! original byte slice, allowing callers to modify the data in place while
+//! enforcing bounds and value‑size checks.
+
 use crate::errors::FileParseError;
 
 #[derive(Debug, Clone, Copy)]

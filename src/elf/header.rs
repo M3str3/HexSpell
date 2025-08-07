@@ -1,3 +1,11 @@
+//! Definitions relating to the ELF file header.
+//!
+//! The file header contains global information about the binary such as
+//! its architecture, entry point and endianness. This module models that
+//! data using [`Field`](crate::field::Field) so the underlying bytes can be
+//! changed safely. Helper methods interpret raw numeric values into more
+//! meaningful enums, reducing boilerplate for consumers of the crate.
+
 use crate::errors;
 use crate::field::Field;
 

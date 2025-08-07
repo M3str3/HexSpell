@@ -1,3 +1,11 @@
+//! Abstractions over Mach-O segments.
+//!
+//! Segments describe ranges of virtual memory and how the corresponding
+//! bytes appear in the file. This module interprets `LC_SEGMENT` and
+//! `LC_SEGMENT_64` commands into [`Segment`] structures with readable
+//! fields for addresses, sizes and protection flags, enabling precise
+//! modifications when rewriting binaries.
+
 use super::header::Endianness;
 use super::load_command::LoadCommand;
 use crate::errors;

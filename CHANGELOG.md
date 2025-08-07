@@ -28,6 +28,7 @@
     - *Changed*: `Field<number>::update` now returns `Result` and errors with `FileParseError::ValueTooLarge` if the value does not fit.
     - *Changed*: `Field<String>::update` now accepts `&str` instead of `&String`, reducing unnecessary allocations when updating string fields.
     - *Fixed*: Improved `Field<String>::update` to ensure that when the new value is shorter than the field size, any leftover bytes are properly zeroed out, and UTF-8 multibyte strings are handled correctly. In previous versions, some bytes from the old value could remain in the binary.
+    - *Documentation*: Expanded module-level documentation with detailed headers across core modules and tests.
 - **PE**
     - *Added*: Added tests for successful and failing writes for **PE** files.
     - *Changed*: Updated internal calls to `Field<number>::update` to propagate `FileParseError::ValueTooLarge` errors.

@@ -1,3 +1,14 @@
+//! Facilities for reading and modifying Mach-O binaries.
+//!
+//! The [`MachO`] type abstracts over both thin and universal (FAT)
+//! executables, parsing the main header along with its load commands and
+//! segments. Parsed values are represented using [`Field`](crate::field::Field)
+//! to allow in-place editing of offsets, sizes and permissions.
+//!
+//! This module intentionally covers a pragmatic subset of the Mach-O
+//! specification focused on common tooling tasks. Additional load
+//! commands can be added incrementally as the need arises.
+
 pub mod header;
 pub mod load_command;
 pub mod segment;

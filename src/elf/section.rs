@@ -1,3 +1,11 @@
+//! Representation and parsing of ELF section headers.
+//!
+//! Each [`SectionHeader`] corresponds to a region of data or metadata in
+//! the ELF file. This module translates the raw table into Rust structs,
+//! resolves the section name string table and offers convenience helpers
+//! for navigating between sections. Only common header fields are
+//! implemented but the approach leaves room for future expansion.
+
 use super::header::Endianness;
 use crate::errors;
 use crate::field::Field;
