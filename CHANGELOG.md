@@ -20,19 +20,18 @@
 >     - *Added*: Your message here using `markdown`.
 
 
-## [Unreleased]
+## [0.0.5](https://github.com/M3str3/HexSpell/pull/10) - 2025-08-07
 
 - **General**
     - *Added*: Added comprehensive tests for `Field<String>` covering padding, exact fit, overflow, and UTF-8 multibyte handling in section names (see `tests/general.rs`).
     - *Added*: Added tests for successful and failing writes for **PE**, **ELF** and **Mach-O** files.
-    - *Added*: Added tests for numeric `Field` updates verifying successful writes and `FileParseError::ValueTooLarge` errors.
-    - *Changed*: Numeric `Field::update` now returns `Result` and errors with `FileParseError::ValueTooLarge` if the value does not fit.
+    - *Added*: Added tests for `Field<number>` updates verifying successful writes and `FileParseError::ValueTooLarge` errors.
+    - *Changed*: `Field<number>::update` now returns `Result` and errors with `FileParseError::ValueTooLarge` if the value does not fit.
     - *Changed*: `Field<String>::update` now accepts `&str` instead of `&String`, reducing unnecessary allocations when updating string fields.
     - *Fixed*: Improved `Field<String>::update` to ensure that when the new value is shorter than the field size, any leftover bytes are properly zeroed out, and UTF-8 multibyte strings are handled correctly. In previous versions, some bytes from the old value could remain in the binary.
 - **PE**
-    - *Added*: Added `write_file` method for **PE** format, providing a consistent read/write interface across all formats.
     - *Added*: Added tests for successful and failing writes for **PE** files.
-    - *Changed*: Updated internal calls to numeric `Field::update` to propagate `FileParseError::ValueTooLarge` errors.
+    - *Changed*: Updated internal calls to `Field<number>::update` to propagate `FileParseError::ValueTooLarge` errors.
 - **ELF**
     - *Added*: Added `write_file` method for **ELF** format, providing a consistent read/write interface across all formats.
     - *Added*: Added tests for successful and failing writes for **ELF** files.
@@ -47,13 +46,15 @@
 ## [0.0.4](https://github.com/M3str3/HexSpell/pull/9) - 2025-08-02
 
 - **General**
-    - *Added*: Added testing for **PE**, **ELF** & **Mach-O** to ensure errors are raised on invalid formats.
-    - *Fixed*: Numeric **Field** updates validate value size and return `FileParseError::ValueTooLarge` when the value cannot fit.
+    - *Fixed*: `Field<string>` updates validate value size and return `FileParseError::BufferOverflow` when the value cannot fit.
 - **PE**
+    - *Added*: Added testing to ensure errors are raised on invalid formats.
     - *Fixed*: In **PeSection** string extraction, invalid ranges errors now propagate to  `FileParseError::BufferOverflow` instead of panicking.
 - **ELF**
+    - *Added*: Added testing to ensure errors are raised on invalid formats.
     - *Fixed*: Conversion errors now propagate to `FileParseError::BufferOverflow` instead of panicking.
 - **Mach-O**
+    - *Added*: Added testing to ensure errors are raised on invalid formats.
     - *Fixed*: Conversion errors now propagate to `FileParseError::BufferOverflow` instead of panicking.
 
 
