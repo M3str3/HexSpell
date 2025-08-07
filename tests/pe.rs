@@ -10,8 +10,8 @@
 use std::fs;
 use toml::Value;
 
-use hexspell::pe; // <-- Testing module
 use hexspell::errors::FileParseError;
+use hexspell::pe; // <-- Testing module
 
 /// ========================================
 /// Testing reading and parsing in a PE file
@@ -206,7 +206,10 @@ fn test_pe_parse() {
 
             // Updating params
             let new_entry: u32 = 0x32EDu32;
-            pe.header.entry_point.update(&mut pe.buffer, new_entry);
+            pe.header
+                .entry_point
+                .update(&mut pe.buffer, new_entry)
+                .unwrap();
             assert_eq!(
                 pe.header.entry_point.value, new_entry,
                 "Entry point didnt changed"
@@ -215,7 +218,7 @@ fn test_pe_parse() {
             let new_section_name = String::from(".test");
             pe.sections[0]
                 .name
-                .update(&mut pe.buffer, &new_section_name)
+                .update(&mut pe.buffer, new_section_name.as_str())
                 .unwrap();
             assert_eq!(
                 pe.sections[0].name.value, new_section_name,
@@ -271,13 +274,18 @@ fn test_pe_shellcode_injection() {
 
     pe.add_section(new_section_header, shellcode.to_vec())
         .expect("[!] Error adding new section into PE");
-    pe.header.entry_point.update(
-        &mut pe.buffer,
-        pe.sections.last().unwrap().virtual_address.value,
-    );
+    pe.header
+        .entry_point
+        .update(
+            &mut pe.buffer,
+            pe.sections.last().unwrap().virtual_address.value,
+        )
+        .unwrap();
 
     pe.write_file("tests/out/modified.exe")
         .expect("[!] Error writing new PE to disk");
+
+    std::fs::remove_file("tests/out/modified.exe").expect("[!] Failed to remove modified PE file");
 }
 
 /// Parsing an invalid PE buffer should return an error
@@ -286,4 +294,27 @@ fn test_pe_invalid_buffer() {
     let buffer = vec![0u8; 10];
     let result = pe::PE::from_buffer(buffer);
     assert!(matches!(result, Err(FileParseError::InvalidFileFormat)));
+}
+
+#[test]
+fn test_pe_write_file() {
+    let pe = pe::PE::from_file("tests/samples/sample1.exe").expect("Error parsing PE file");
+    let tmp_path = std::env::temp_dir().join("pe_write_test.exe");
+    pe.write_file(tmp_path.to_str().unwrap())
+        .expect("Error writing PE to disk");
+
+    let original =
+        std::fs::read("tests/samples/sample1.exe").expect("[!] Failed to read original PE file");
+    let written = std::fs::read(&tmp_path).expect("[!] Failed to read written PE file");
+    assert_eq!(original, written);
+
+    std::fs::remove_file(tmp_path).expect("[!] Failed to remove written PE file");
+}
+
+#[test]
+fn test_pe_write_file_fail() {
+    let pe = pe::PE::from_file("tests/samples/sample1.exe").expect("Error parsing PE file");
+    let invalid_path = std::env::temp_dir().join("nonexistent_dir").join("pe.bin");
+    let result = pe.write_file(invalid_path.to_str().unwrap());
+    assert!(result.is_err());
 }

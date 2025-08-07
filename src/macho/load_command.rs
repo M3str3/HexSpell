@@ -1,3 +1,12 @@
+//! Types and parsers for Mach-O load commands.
+//!
+//! Load commands describe the layout of the rest of the file, including
+//! segment mappings and metadata such as symbol tables. This module offers
+//! an iterator over the command stream that yields typed [`LoadCommand`]
+//! values, performing bounds checks and handling both little- and
+//! big-endian variants.
+
+use super::header::Endianness;
 use crate::errors;
 use crate::field::Field;
 
@@ -12,6 +21,7 @@ impl LoadCommand {
         buffer: &[u8],
         offset: usize,
         ncmds: u32,
+        endianness: Endianness,
     ) -> Result<Vec<Self>, errors::FileParseError> {
         let mut commands = Vec::new();
         let mut current_offset = offset;
@@ -21,24 +31,20 @@ impl LoadCommand {
                 return Err(errors::FileParseError::BufferOverflow);
             }
 
-            let cmd = Field::new(
-                u32::from_le_bytes(
-                    buffer[current_offset..current_offset + 4]
-                        .try_into()
-                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
-                ),
-                current_offset,
-                4,
-            );
-            let cmdsize = Field::new(
-                u32::from_le_bytes(
-                    buffer[current_offset + 4..current_offset + 8]
-                        .try_into()
-                        .map_err(|_| errors::FileParseError::BufferOverflow)?,
-                ),
-                current_offset + 4,
-                4,
-            );
+            let read_u32 = |offset: usize| -> Result<u32, errors::FileParseError> {
+                let bytes: [u8; 4] = buffer
+                    .get(offset..offset + 4)
+                    .ok_or(errors::FileParseError::BufferOverflow)?
+                    .try_into()
+                    .map_err(|_| errors::FileParseError::BufferOverflow)?;
+                Ok(match endianness {
+                    Endianness::Little => u32::from_le_bytes(bytes),
+                    Endianness::Big => u32::from_be_bytes(bytes),
+                })
+            };
+
+            let cmd = Field::new(read_u32(current_offset)?, current_offset, 4);
+            let cmdsize = Field::new(read_u32(current_offset + 4)?, current_offset + 4, 4);
 
             commands.push(LoadCommand { cmd, cmdsize });
             current_offset += cmdsize.value as usize;

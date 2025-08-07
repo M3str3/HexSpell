@@ -1,3 +1,10 @@
+//! Error types shared across the crate.
+//!
+//! Binary parsing is prone to a variety of failures ranging from truncated
+//! data to unsupported features. The [`FileParseError`] enum captures these
+//! cases in a single place so that all modules can communicate problems in a
+//! consistent manner. For convenience a `Result` alias is provided as well.
+
 use std::fmt;
 use std::io;
 
@@ -6,6 +13,7 @@ pub enum FileParseError {
     Io(io::Error),
     InvalidFileFormat,
     BufferOverflow,
+    ValueTooLarge,
     SliceConversionError,
     UnsupportedFeature(String),
 }
@@ -16,6 +24,7 @@ impl fmt::Display for FileParseError {
             FileParseError::Io(err) => write!(f, "I/O error: {err}"),
             FileParseError::InvalidFileFormat => write!(f, "Invalid file format."),
             FileParseError::BufferOverflow => write!(f, "Data out of bounds."),
+            FileParseError::ValueTooLarge => write!(f, "Value exceeds field size."),
             FileParseError::SliceConversionError => write!(f, "Error converting slice to array."),
             FileParseError::UnsupportedFeature(feature) => {
                 write!(f, "Unsupported feature: {feature}")

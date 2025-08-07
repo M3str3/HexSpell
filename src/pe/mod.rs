@@ -1,3 +1,16 @@
+//! Tools for working with the Windows Portable Executable format.
+//!
+//! The [`PE`] type loads an executable into memory, parses its DOS and
+//! NT headers, and exposes section information through strongly typed
+//! structures. Fields that can be altered are wrapped in [`Field`] so the
+//! original buffer can be updated in place.
+//!
+//! In addition to read/modify support, this module offers convenience
+//! helpers like [`PE::calc_checksum`] for computing the file checksum and
+//! [`PE::write_file`] for persisting changes. The implementation is not a
+//! complete re-creation of the PE spec but aims to cover the portions
+//! commonly needed when experimenting with binaries.
+
 use std::fs;
 use std::io::{self, Write};
 
@@ -295,7 +308,7 @@ impl PE {
                 // Update the SizeOfHeaders in the PE header
                 self.header
                     .size_of_headers
-                    .update(&mut self.buffer, alig_new_size_of_headers);
+                    .update(&mut self.buffer, alig_new_size_of_headers)?;
 
                 let diff = alig_new_size_of_headers as usize - alig_old_size_of_headers as usize;
 
@@ -310,7 +323,7 @@ impl PE {
                         section.pointer_to_raw_data.update(
                             &mut self.buffer,
                             section.pointer_to_raw_data.value + diff as u32,
-                        );
+                        )?;
                     }
                 }
             }
@@ -356,19 +369,21 @@ impl PE {
             & !(self.header.section_alignment.value - 1);
         self.header
             .size_of_image
-            .update(&mut self.buffer, new_size_of_image);
+            .update(&mut self.buffer, new_size_of_image)?;
 
         // Update the number of sections in the header
         self.header
             .number_of_sections
-            .update(&mut self.buffer, self.header.number_of_sections.value + 1);
+            .update(&mut self.buffer, self.header.number_of_sections.value + 1)?;
 
         // Add the new section to the PE structure
         self.sections.push(new_section);
 
         // Recalculate and update the checksum
         let new_checksum = self.calc_checksum();
-        self.header.checksum.update(&mut self.buffer, new_checksum);
+        self.header
+            .checksum
+            .update(&mut self.buffer, new_checksum)?;
 
         Ok(())
     }

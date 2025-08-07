@@ -1,10 +1,22 @@
+//! Utilities for parsing and rewriting ELF binaries.
+//!
+//! The [`ELF`] type encapsulates a binary loaded from disk and provides
+//! access to its file header, program headers, and section headers. Each
+//! part of the format is parsed lazily into strongly typed structures so
+//! that values can be inspected or modified before being written back.
+//!
+//! While HexSpell only supports a subset of the ELF specification, the
+//! API is intentionally designed to mirror the standard and remain easy
+//! to extend. This makes it suitable for experiments, teaching purposes,
+//! or light-weight patching tasks.
+
 pub mod header;
 pub mod program;
 pub mod section;
 
 use crate::errors;
 use std::fs;
-use std::io::Read;
+use std::io::{self, Read, Write};
 
 use header::ElfHeader;
 use program::ProgramHeader;
@@ -18,6 +30,13 @@ pub struct ELF {
 }
 
 impl ELF {
+    /// Write `self.buffer` to disk.
+    pub fn write_file(&self, output_path: &str) -> io::Result<()> {
+        let mut file = fs::File::create(output_path)?;
+        file.write_all(&self.buffer)?;
+        Ok(())
+    }
+
     /// Parses a ELF file from a specified file path.
     ///
     /// # Arguments
@@ -63,12 +82,14 @@ impl ELF {
             header.ph_off.value,
             header.ph_ent_size.value,
             header.ph_num.value,
+            header.endianness,
         )?;
         let section_headers = SectionHeader::parse_section_headers(
             &buffer,
             header.sh_off.value,
             header.sh_ent_size.value,
             header.sh_num.value,
+            header.endianness,
         )?;
 
         Ok(ELF {

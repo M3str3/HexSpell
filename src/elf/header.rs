@@ -1,3 +1,11 @@
+//! Definitions relating to the ELF file header.
+//!
+//! The file header contains global information about the binary such as
+//! its architecture, entry point and endianness. This module models that
+//! data using [`Field`](crate::field::Field) so the underlying bytes can be
+//! changed safely. Helper methods interpret raw numeric values into more
+//! meaningful enums, reducing boilerplate for consumers of the crate.
+
 use crate::errors;
 use crate::field::Field;
 
@@ -24,9 +32,16 @@ impl From<u16> for ElfType {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum Endianness {
+    Little,
+    Big,
+}
+
 #[derive(Debug)]
 pub struct ElfHeader {
     pub ident: Vec<u8>,
+    pub endianness: Endianness,
     pub elf_type: Field<ElfType>,
     pub machine: Field<u16>,
     pub version: Field<u32>,
@@ -48,59 +63,71 @@ impl ElfHeader {
             return Err(errors::FileParseError::BufferOverflow);
         }
 
-        let ident: Vec<u8> = buffer[0..16].to_vec();
+        // Check magic bytes
+        if buffer[0..4] != [0x7F, b'E', b'L', b'F'] {
+            return Err(errors::FileParseError::InvalidFileFormat);
+        }
 
-        let elf_type: Field<ElfType> = Field::new(
-            ElfType::from(u16::from_le_bytes([buffer[16], buffer[17]])),
-            16,
-            2,
-        );
-        let machine: Field<u16> = Field::new(u16::from_le_bytes([buffer[18], buffer[19]]), 18, 2);
-        let version: Field<u32> = Field::new(
-            u32::from_le_bytes([buffer[20], buffer[21], buffer[22], buffer[23]]),
-            20,
-            4,
-        );
-        let entry: Field<u64> = Field::new(
-            u64::from_le_bytes([
-                buffer[24], buffer[25], buffer[26], buffer[27], buffer[28], buffer[29], buffer[30],
-                buffer[31],
-            ]),
-            24,
-            8,
-        );
-        let ph_off: Field<u64> = Field::new(
-            u64::from_le_bytes([
-                buffer[32], buffer[33], buffer[34], buffer[35], buffer[36], buffer[37], buffer[38],
-                buffer[39],
-            ]),
-            32,
-            8,
-        );
-        let sh_off: Field<u64> = Field::new(
-            u64::from_le_bytes([
-                buffer[40], buffer[41], buffer[42], buffer[43], buffer[44], buffer[45], buffer[46],
-                buffer[47],
-            ]),
-            40,
-            8,
-        );
-        let flags: Field<u32> = Field::new(
-            u32::from_le_bytes([buffer[48], buffer[49], buffer[50], buffer[51]]),
-            48,
-            4,
-        );
-        let eh_size: Field<u16> = Field::new(u16::from_le_bytes([buffer[52], buffer[53]]), 52, 2);
-        let ph_ent_size: Field<u16> =
-            Field::new(u16::from_le_bytes([buffer[54], buffer[55]]), 54, 2);
-        let ph_num: Field<u16> = Field::new(u16::from_le_bytes([buffer[56], buffer[57]]), 56, 2);
-        let sh_ent_size: Field<u16> =
-            Field::new(u16::from_le_bytes([buffer[58], buffer[59]]), 58, 2);
-        let sh_num: Field<u16> = Field::new(u16::from_le_bytes([buffer[60], buffer[61]]), 60, 2);
-        let sh_strndx: Field<u16> = Field::new(u16::from_le_bytes([buffer[62], buffer[63]]), 62, 2);
+        let ident: Vec<u8> = buffer[0..16].to_vec();
+        let endianness = match buffer[5] {
+            1 => Endianness::Little,
+            2 => Endianness::Big,
+            _ => return Err(errors::FileParseError::InvalidFileFormat),
+        };
+
+        let read_u16 = |offset: usize| -> u16 {
+            let bytes = [buffer[offset], buffer[offset + 1]];
+            match endianness {
+                Endianness::Little => u16::from_le_bytes(bytes),
+                Endianness::Big => u16::from_be_bytes(bytes),
+            }
+        };
+        let read_u32 = |offset: usize| -> u32 {
+            let bytes = [
+                buffer[offset],
+                buffer[offset + 1],
+                buffer[offset + 2],
+                buffer[offset + 3],
+            ];
+            match endianness {
+                Endianness::Little => u32::from_le_bytes(bytes),
+                Endianness::Big => u32::from_be_bytes(bytes),
+            }
+        };
+        let read_u64 = |offset: usize| -> u64 {
+            let bytes = [
+                buffer[offset],
+                buffer[offset + 1],
+                buffer[offset + 2],
+                buffer[offset + 3],
+                buffer[offset + 4],
+                buffer[offset + 5],
+                buffer[offset + 6],
+                buffer[offset + 7],
+            ];
+            match endianness {
+                Endianness::Little => u64::from_le_bytes(bytes),
+                Endianness::Big => u64::from_be_bytes(bytes),
+            }
+        };
+
+        let elf_type: Field<ElfType> = Field::new(ElfType::from(read_u16(16)), 16, 2);
+        let machine: Field<u16> = Field::new(read_u16(18), 18, 2);
+        let version: Field<u32> = Field::new(read_u32(20), 20, 4);
+        let entry: Field<u64> = Field::new(read_u64(24), 24, 8);
+        let ph_off: Field<u64> = Field::new(read_u64(32), 32, 8);
+        let sh_off: Field<u64> = Field::new(read_u64(40), 40, 8);
+        let flags: Field<u32> = Field::new(read_u32(48), 48, 4);
+        let eh_size: Field<u16> = Field::new(read_u16(52), 52, 2);
+        let ph_ent_size: Field<u16> = Field::new(read_u16(54), 54, 2);
+        let ph_num: Field<u16> = Field::new(read_u16(56), 56, 2);
+        let sh_ent_size: Field<u16> = Field::new(read_u16(58), 58, 2);
+        let sh_num: Field<u16> = Field::new(read_u16(60), 60, 2);
+        let sh_strndx: Field<u16> = Field::new(read_u16(62), 62, 2);
 
         Ok(ElfHeader {
             ident,
+            endianness,
             elf_type,
             machine,
             version,
