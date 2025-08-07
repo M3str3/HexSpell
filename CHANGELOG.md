@@ -24,7 +24,6 @@
 
 - **General**
     - *Added*: Added comprehensive tests for `Field<String>` covering padding, exact fit, overflow, and UTF-8 multibyte handling in section names (see `tests/general.rs`).
-    - *Added*: Added tests for successful and failing writes for **PE**, **ELF** and **Mach-O** files.
     - *Added*: Added tests for `Field<number>` updates verifying successful writes and `FileParseError::ValueTooLarge` errors.
     - *Changed*: `Field<number>::update` now returns `Result` and errors with `FileParseError::ValueTooLarge` if the value does not fit.
     - *Changed*: `Field<String>::update` now accepts `&str` instead of `&String`, reducing unnecessary allocations when updating string fields.
