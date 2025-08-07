@@ -27,6 +27,7 @@
     - *Added*: Added tests for successful and failing writes for **PE**, **ELF** and **Mach-O** files.
     - *Added*: Added tests for numeric `Field` updates verifying successful writes and `FileParseError::ValueTooLarge` errors.
     - *Changed*: Numeric `Field::update` now returns `Result` and errors with `FileParseError::ValueTooLarge` if the value does not fit.
+    - *Changed*: `Field<String>::update` now accepts `&str` instead of `&String`, reducing unnecessary allocations when updating string fields.
     - *Fixed*: Improved `Field<String>::update` to ensure that when the new value is shorter than the field size, any leftover bytes are properly zeroed out, and UTF-8 multibyte strings are handled correctly. In previous versions, some bytes from the old value could remain in the binary.
 - **PE**
     - *Added*: Added `write_file` method for **PE** format, providing a consistent read/write interface across all formats.

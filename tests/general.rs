@@ -60,7 +60,7 @@ fn test_padding_shorter() {
     let offset = name_field.offset;
     let size = name_field.size;
 
-    name_field.update(&mut buffer, &new_name).unwrap();
+    name_field.update(&mut buffer, new_name.as_str()).unwrap();
 
     assert_eq!(
         &buffer[offset..offset + new_name.len()],
@@ -82,7 +82,7 @@ fn test_exact_fit() {
     let exact = "X".repeat(size);
     let offset = name_field.offset;
 
-    name_field.update(&mut buffer, &exact).unwrap();
+    name_field.update(&mut buffer, exact.as_str()).unwrap();
 
     assert_eq!(
         &buffer[offset..offset + size],
@@ -98,7 +98,7 @@ fn test_overflow_error() {
     let overflow = "A".repeat(size + 1);
 
     let err = name_field
-        .update(&mut buffer, &overflow)
+        .update(&mut buffer, overflow.as_str())
         .expect_err("Expected a BufferOverflow error");
 
     assert!(
@@ -123,7 +123,7 @@ fn test_utf8_multibyte() {
         size
     );
 
-    name_field.update(&mut buffer, &new_name).unwrap();
+    name_field.update(&mut buffer, new_name.as_str()).unwrap();
 
     assert_eq!(
         &buffer[offset..offset + bytes.len()],

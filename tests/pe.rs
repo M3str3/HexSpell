@@ -218,7 +218,7 @@ fn test_pe_parse() {
             let new_section_name = String::from(".test");
             pe.sections[0]
                 .name
-                .update(&mut pe.buffer, &new_section_name)
+                .update(&mut pe.buffer, new_section_name.as_str())
                 .unwrap();
             assert_eq!(
                 pe.sections[0].name.value, new_section_name,
