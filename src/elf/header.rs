@@ -2,13 +2,14 @@
 //!
 //! The file header contains global information about the binary such as
 //! its architecture, entry point and endianness. This module models that
-//! data using [`Field`](crate::field::Field) so the underlying bytes can be
+//! data using [`Field`] so the underlying bytes can be
 //! changed safely. Helper methods interpret raw numeric values into more
 //! meaningful enums, reducing boilerplate for consumers of the crate.
 
 use crate::errors;
-use crate::field::Field;
+use crate::field::{ByteOrder, Field, FixedBytes};
 
+/// ELF file type (`e_type`).
 #[derive(Debug, PartialEq, Eq)]
 pub enum ElfType {
     None,
@@ -32,102 +33,150 @@ impl From<u16> for ElfType {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum Endianness {
-    Little,
-    Big,
+/// ELF word size (`EI_CLASS`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ElfClass {
+    /// 32-bit ELF.
+    Elf32,
+    /// 64-bit ELF.
+    Elf64,
 }
 
+/// ELF file header (`Ehdr`).
+///
+/// `ei_mag`, `ei_class`, `ei_data`, `ei_version`, and `ei_pad` mirror `e_ident`. Use
+/// [`ElfHeader::ei_data`] as the canonical endianness byte (`1` = LE, `2` = BE).
 #[derive(Debug)]
 pub struct ElfHeader {
-    pub ident: Vec<u8>,
-    pub endianness: Endianness,
+    /// `e_ident[0..4]` — must be `\x7FELF`.
+    pub ei_mag: Field<FixedBytes<4>>,
+    /// `e_ident[EI_CLASS]` — `1` = ELF32, `2` = ELF64.
+    pub ei_class: Field<u8>,
+    /// `e_ident[EI_DATA]` — `1` = little-endian, `2` = big-endian.
+    pub ei_data: Field<u8>,
+    /// `e_ident[EI_VERSION]`.
+    pub ei_version: Field<u8>,
+    /// `e_ident[EI_PAD..]` — padding bytes.
+    pub ei_pad: Field<FixedBytes<9>>,
+    /// `e_type`.
     pub elf_type: Field<ElfType>,
+    /// `e_machine`.
     pub machine: Field<u16>,
+    /// `e_version`.
     pub version: Field<u32>,
+    /// `e_entry` — program entry point virtual address.
     pub entry: Field<u64>,
+    /// `e_phoff` — file offset of the program header table.
     pub ph_off: Field<u64>,
+    /// `e_shoff` — file offset of the section header table.
     pub sh_off: Field<u64>,
+    /// `e_flags`.
     pub flags: Field<u32>,
+    /// `e_ehsize`.
     pub eh_size: Field<u16>,
+    /// `e_phentsize`.
     pub ph_ent_size: Field<u16>,
+    /// `e_phnum`.
     pub ph_num: Field<u16>,
+    /// `e_shentsize`.
     pub sh_ent_size: Field<u16>,
+    /// `e_shnum`.
     pub sh_num: Field<u16>,
+    /// `e_shstrndx` — section header string table index.
     pub sh_strndx: Field<u16>,
 }
 
 impl ElfHeader {
+    /// Returns [`ElfClass`] from `ei_class`.
+    pub fn class(&self) -> Result<ElfClass, errors::FileParseError> {
+        match self.ei_class.value {
+            1 => Ok(ElfClass::Elf32),
+            2 => Ok(ElfClass::Elf64),
+            _ => Err(errors::FileParseError::InvalidFileFormat),
+        }
+    }
+
+    /// Parses the ELF file header from the start of `buffer`.
     pub fn parse(buffer: &[u8]) -> Result<Self, errors::FileParseError> {
-        if buffer.len() < 64 {
+        if buffer.len() < 16 {
             return Err(errors::FileParseError::BufferOverflow);
         }
 
-        // Check magic bytes
-        if buffer[0..4] != [0x7F, b'E', b'L', b'F'] {
+        let ei_mag = Field::new(FixedBytes::from_slice(&buffer[0..4]), 0, 4);
+        let ei_class = Field::new(buffer[4], 4, 1);
+        let ei_data = Field::new(buffer[5], 5, 1);
+        let ei_version = Field::new(buffer[6], 6, 1);
+        let ei_pad = Field::new(FixedBytes::from_slice(&buffer[7..16]), 7, 9);
+
+        if ei_mag.value.0 != [0x7F, b'E', b'L', b'F'] {
             return Err(errors::FileParseError::InvalidFileFormat);
         }
 
-        let ident: Vec<u8> = buffer[0..16].to_vec();
-        let endianness = match buffer[5] {
-            1 => Endianness::Little,
-            2 => Endianness::Big,
+        let class = match ei_class.value {
+            1 => ElfClass::Elf32,
+            2 => ElfClass::Elf64,
             _ => return Err(errors::FileParseError::InvalidFileFormat),
         };
 
-        let read_u16 = |offset: usize| -> u16 {
-            let bytes = [buffer[offset], buffer[offset + 1]];
-            match endianness {
-                Endianness::Little => u16::from_le_bytes(bytes),
-                Endianness::Big => u16::from_be_bytes(bytes),
-            }
-        };
-        let read_u32 = |offset: usize| -> u32 {
-            let bytes = [
-                buffer[offset],
-                buffer[offset + 1],
-                buffer[offset + 2],
-                buffer[offset + 3],
-            ];
-            match endianness {
-                Endianness::Little => u32::from_le_bytes(bytes),
-                Endianness::Big => u32::from_be_bytes(bytes),
-            }
-        };
-        let read_u64 = |offset: usize| -> u64 {
-            let bytes = [
-                buffer[offset],
-                buffer[offset + 1],
-                buffer[offset + 2],
-                buffer[offset + 3],
-                buffer[offset + 4],
-                buffer[offset + 5],
-                buffer[offset + 6],
-                buffer[offset + 7],
-            ];
-            match endianness {
-                Endianness::Little => u64::from_le_bytes(bytes),
-                Endianness::Big => u64::from_be_bytes(bytes),
-            }
-        };
+        let order = ByteOrder::from_ei_data(ei_data.value)?;
 
-        let elf_type: Field<ElfType> = Field::new(ElfType::from(read_u16(16)), 16, 2);
-        let machine: Field<u16> = Field::new(read_u16(18), 18, 2);
-        let version: Field<u32> = Field::new(read_u32(20), 20, 4);
-        let entry: Field<u64> = Field::new(read_u64(24), 24, 8);
-        let ph_off: Field<u64> = Field::new(read_u64(32), 32, 8);
-        let sh_off: Field<u64> = Field::new(read_u64(40), 40, 8);
-        let flags: Field<u32> = Field::new(read_u32(48), 48, 4);
-        let eh_size: Field<u16> = Field::new(read_u16(52), 52, 2);
-        let ph_ent_size: Field<u16> = Field::new(read_u16(54), 54, 2);
-        let ph_num: Field<u16> = Field::new(read_u16(56), 56, 2);
-        let sh_ent_size: Field<u16> = Field::new(read_u16(58), 58, 2);
-        let sh_num: Field<u16> = Field::new(read_u16(60), 60, 2);
-        let sh_strndx: Field<u16> = Field::new(read_u16(62), 62, 2);
+        let min_header_size = match class {
+            ElfClass::Elf32 => 52,
+            ElfClass::Elf64 => 64,
+        };
+        if buffer.len() < min_header_size {
+            return Err(errors::FileParseError::BufferOverflow);
+        }
+
+        let elf_type: Field<ElfType> =
+            Field::new(ElfType::from(order.read_u16(buffer, 16)?), 16, 2);
+        let machine: Field<u16> = Field::new(order.read_u16(buffer, 18)?, 18, 2);
+        let version: Field<u32> = Field::new(order.read_u32(buffer, 20)?, 20, 4);
+
+        let (
+            entry,
+            ph_off,
+            sh_off,
+            flags,
+            eh_size,
+            ph_ent_size,
+            ph_num,
+            sh_ent_size,
+            sh_num,
+            sh_strndx,
+        ) = match class {
+            ElfClass::Elf32 => (
+                Field::new(order.read_u32(buffer, 24)? as u64, 24, 4),
+                Field::new(order.read_u32(buffer, 28)? as u64, 28, 4),
+                Field::new(order.read_u32(buffer, 32)? as u64, 32, 4),
+                Field::new(order.read_u32(buffer, 36)?, 36, 4),
+                Field::new(order.read_u16(buffer, 40)?, 40, 2),
+                Field::new(order.read_u16(buffer, 42)?, 42, 2),
+                Field::new(order.read_u16(buffer, 44)?, 44, 2),
+                Field::new(order.read_u16(buffer, 46)?, 46, 2),
+                Field::new(order.read_u16(buffer, 48)?, 48, 2),
+                Field::new(order.read_u16(buffer, 50)?, 50, 2),
+            ),
+            ElfClass::Elf64 => (
+                Field::new(order.read_u64(buffer, 24)?, 24, 8),
+                Field::new(order.read_u64(buffer, 32)?, 32, 8),
+                Field::new(order.read_u64(buffer, 40)?, 40, 8),
+                Field::new(order.read_u32(buffer, 48)?, 48, 4),
+                Field::new(order.read_u16(buffer, 52)?, 52, 2),
+                Field::new(order.read_u16(buffer, 54)?, 54, 2),
+                Field::new(order.read_u16(buffer, 56)?, 56, 2),
+                Field::new(order.read_u16(buffer, 58)?, 58, 2),
+                Field::new(order.read_u16(buffer, 60)?, 60, 2),
+                Field::new(order.read_u16(buffer, 62)?, 62, 2),
+            ),
+        };
 
         Ok(ElfHeader {
-            ident,
-            endianness,
+            ei_mag,
+            ei_class,
+            ei_data,
+            ei_version,
+            ei_pad,
             elf_type,
             machine,
             version,
