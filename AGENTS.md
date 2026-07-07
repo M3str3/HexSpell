@@ -47,7 +47,7 @@ Example — add `PE::foo()` for a data directory:
 - **ELF / Mach-O endianness** — read `ei_data` / header magic; use `ByteOrder` and `update_with`, not raw little-endian writes.
 - **Section names** — PE uses `Field<FixedBytes<8>>` (`name_str()` for display); long COFF names go through `strings::pe_section_name`.
 - **New binaries** — every file in `tests/samples/` needs provenance in `tests/readme.md` and usually a rebuild recipe in `tests/source/`.
-- **Warnings are errors in CI** — `RUSTFLAGS="-D warnings"` and `cargo clippy --all-targets -- -D warnings` in `.github/workflows/rust.yml`.
+- **Warnings are errors in CI** — single job on `ubuntu-latest` + `stable`: `RUSTFLAGS="-D warnings"`, `cargo clippy --all-targets -- -D warnings`, `cargo test`.
 
 ## Repo map
 

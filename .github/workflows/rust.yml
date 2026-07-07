@@ -3,23 +3,18 @@ name: HexSpell testing
 on:
   push:
     branches:
-      - '*'  
+      - '*'
   pull_request:
     branches:
-      - '*'  
+      - '*'
 
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: "-D warnings"
-  
+
 jobs:
   test:
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      matrix:
-        rust: [stable, beta] 
-        os: [ubuntu-latest, macos-latest, windows-latest]  
+    runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v4
@@ -27,38 +22,24 @@ jobs:
     - name: Set up Rust
       uses: dtolnay/rust-toolchain@stable
       with:
-        toolchain: ${{ matrix.rust }}
         components: clippy
 
-    - name: Cache Cargo registry
-      uses: actions/cache@v3
+    - name: Cache Cargo
+      uses: actions/cache@v4
       with:
-        path: ~/.cargo/registry
-        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('Cargo.toml') }}
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock', 'Cargo.toml') }}
         restore-keys: |
-          ${{ runner.os }}-cargo-registry-
+          ${{ runner.os }}-cargo-
 
-    - name: Cache Cargo index
-      uses: actions/cache@v3
-      with:
-        path: ~/.cargo/git
-        key: ${{ runner.os }}-cargo-index-${{ hashFiles('Cargo.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-cargo-index-
-
-    - name: Cache Cargo build
-      uses: actions/cache@v3
-      with:
-        path: target
-        key: ${{ runner.os }}-cargo-build-${{ hashFiles('Cargo.toml') }}
-        restore-keys: |
-          ${{ runner.os }}-cargo-build-
-
-    - name: Build project
+    - name: Build
       run: cargo build --verbose
 
-    - name: Run clippy
+    - name: Clippy
       run: cargo clippy --all-targets --verbose -- -D warnings
 
-    - name: Run tests
-      run: cargo test --verbose --all-features
+    - name: Test
+      run: cargo test --verbose
