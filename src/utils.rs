@@ -8,6 +8,7 @@
 
 use crate::errors::FileParseError;
 
+/// Reads a little-endian `u64` at `offset`, returning [`FileParseError::BufferOverflow`] on truncation.
 pub fn extract_u64(buffer: &[u8], offset: usize) -> Result<u64, FileParseError> {
     buffer
         .get(offset..offset + 8)
@@ -16,6 +17,7 @@ pub fn extract_u64(buffer: &[u8], offset: usize) -> Result<u64, FileParseError> 
         .map(u64::from_le_bytes)
 }
 
+/// Reads a little-endian `u32` at `offset`, returning [`FileParseError::BufferOverflow`] on truncation.
 pub fn extract_u32(buffer: &[u8], offset: usize) -> Result<u32, FileParseError> {
     buffer
         .get(offset..offset + 4)
@@ -28,6 +30,7 @@ pub fn extract_u32(buffer: &[u8], offset: usize) -> Result<u32, FileParseError> 
         })
 }
 
+/// Reads a little-endian `u16` at `offset`, returning [`FileParseError::BufferOverflow`] on truncation.
 pub fn extract_u16(buffer: &[u8], offset: usize) -> Result<u16, FileParseError> {
     buffer
         .get(offset..offset + 2)

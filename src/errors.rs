@@ -10,11 +10,15 @@ use std::io;
 
 #[derive(Debug)]
 pub enum FileParseError {
+    /// Underlying I/O failure (read/write).
     Io(io::Error),
+    /// Magic bytes or structural invariant does not match the expected format.
     InvalidFileFormat,
+    /// Read or write would extend past the end of the buffer.
     BufferOverflow,
+    /// Numeric value does not fit in the on-disk field width.
     ValueTooLarge,
-    SliceConversionError,
+    /// Requested capability is not implemented yet.
     UnsupportedFeature(String),
 }
 
@@ -25,7 +29,6 @@ impl fmt::Display for FileParseError {
             FileParseError::InvalidFileFormat => write!(f, "Invalid file format."),
             FileParseError::BufferOverflow => write!(f, "Data out of bounds."),
             FileParseError::ValueTooLarge => write!(f, "Value exceeds field size."),
-            FileParseError::SliceConversionError => write!(f, "Error converting slice to array."),
             FileParseError::UnsupportedFeature(feature) => {
                 write!(f, "Unsupported feature: {feature}")
             }
@@ -46,4 +49,5 @@ impl std::error::Error for FileParseError {
         }
     }
 }
+/// Convenience alias used by all format parsers.
 pub type Result<T> = std::result::Result<T, FileParseError>;
