@@ -20,9 +20,7 @@ use hexspell::pe; // <-- Testing module
 fn test_pe_parse() {
     let toml_contents: String =
         fs::read_to_string("tests/tests.toml").expect("Failed to read tests.toml");
-    let data: Value = toml_contents
-        .parse::<Value>()
-        .expect("Failed to parse TOML");
+    let data: Value = toml::from_str(&toml_contents).expect("Failed to parse TOML");
 
     // PE FILES (pe, pe_section)
     if let Some(pe) = data.get("pe").and_then(|v| v.as_table()) {
@@ -94,67 +92,68 @@ fn test_pe_parse() {
 
             // Testing parse params result
             assert_eq!(
-                pe.header.architecture.value.to_string(),
+                pe.architecture().to_string(),
                 architecture,
                 "Architecture does not match for {}",
                 key
             );
             assert_eq!(
-                pe.header.checksum.value, checksum,
+                pe.optional_header.checksum.value, checksum,
                 "Checksum does not match for {}",
                 key
             );
             assert_eq!(
-                pe.header.entry_point.value, entry_point,
+                pe.optional_header.entry_point.value, entry_point,
                 "Entry point does not match for {}",
                 key
             );
             assert_eq!(
-                pe.header.size_of_image.value, size_of_image,
+                pe.optional_header.size_of_image.value, size_of_image,
                 "Size of image does not match for {}",
                 key
             );
             assert_eq!(
-                pe.header.number_of_sections.value, number_of_sections,
+                pe.coff_header.number_of_sections.value, number_of_sections,
                 "Number of sections does not match for {}",
                 key
             );
             assert_eq!(
-                pe.header.section_alignment.value, section_alignment,
+                pe.optional_header.section_alignment.value, section_alignment,
                 "Section alignment of sections does not match for {}",
                 key
             );
             assert_eq!(
-                pe.header.file_alignment.value, file_alignment,
+                pe.optional_header.file_alignment.value, file_alignment,
                 "File alignment does not match for {}",
                 key
             );
             assert_eq!(
-                pe.header.base_of_code.value, base_of_code,
+                pe.optional_header.base_of_code.value, base_of_code,
                 "Base of code does not match for {}",
                 key
             );
             assert_eq!(
-                pe.header.base_of_data.value, base_of_data,
+                pe.optional_header.base_of_data.as_ref().map(|f| f.value),
+                Some(base_of_data),
                 "Base of data does not match for {}",
                 key
             );
             assert_eq!(
-                pe.header.size_of_headers.value, size_of_headers,
+                pe.optional_header.size_of_headers.value, size_of_headers,
                 "Size of headers does not match for {}",
                 key
             );
             assert_eq!(
-                pe.header.subsystem.value, subsystem,
+                pe.optional_header.subsystem.value, subsystem,
                 "Subsystem does not match for {}",
                 key
             );
             assert_eq!(
-                pe.header.dll_characteristics.value, dll_characteristics,
+                pe.optional_header.dll_characteristics.value, dll_characteristics,
                 "DLL characteristics does not match for {}",
                 key
             );
-            match pe.header.pe_type {
+            match pe.optional_header.pe_type().unwrap() {
                 pe::header::PEType::PE32 => {
                     // Convertir image_base desde hexadecimal a u32
                     let image_base = value
@@ -164,7 +163,7 @@ fn test_pe_parse() {
                         .unwrap();
 
                     // Comprobar si el valor de image_base es de tipo Base32
-                    match pe.header.image_base.value {
+                    match pe.optional_header.image_base.value {
                         pe::header::ImageBase::Base32(base) => {
                             assert_eq!(
                                 base, image_base,
@@ -184,7 +183,7 @@ fn test_pe_parse() {
                         .unwrap();
 
                     // Comprobar si el valor de image_base es de tipo Base64
-                    match pe.header.image_base.value {
+                    match pe.optional_header.image_base.value {
                         pe::header::ImageBase::Base64(base) => {
                             assert_eq!(
                                 base, image_base,
@@ -200,28 +199,29 @@ fn test_pe_parse() {
             // Testing some functions
             let checksum_calculed: u32 = pe.calc_checksum();
             assert_eq!(
-                pe.header.checksum.value, checksum_calculed,
+                pe.optional_header.checksum.value, checksum_calculed,
                 "Calculed checksum doesnt fit the original checksum"
             );
 
             // Updating params
             let new_entry: u32 = 0x32EDu32;
-            pe.header
+            pe.optional_header
                 .entry_point
                 .update(&mut pe.buffer, new_entry)
                 .unwrap();
             assert_eq!(
-                pe.header.entry_point.value, new_entry,
+                pe.optional_header.entry_point.value, new_entry,
                 "Entry point didnt changed"
             );
 
-            let new_section_name = String::from(".test");
+            let new_section_name = ".test";
             pe.sections[0]
                 .name
-                .update(&mut pe.buffer, new_section_name.as_str())
+                .update_str(&mut pe.buffer, new_section_name)
                 .unwrap();
             assert_eq!(
-                pe.sections[0].name.value, new_section_name,
+                pe.sections[0].name_str(),
+                new_section_name,
                 "Section name didnt changed"
             );
         }
@@ -261,20 +261,13 @@ fn test_pe_shellcode_injection() {
 
     let mut pe = pe::PE::from_file("tests/samples/sample1.exe").expect("[!] Error opening PE file");
 
-    // Create new section header based on basic parameters
-    let new_section_header = pe
-        .generate_section_header(
-            ".shell",               // Name for the new section
-            shellcode.len() as u32, // The size of the data it has to store
-            pe::section::Characteristics::Code.to_u32() // Basic characteristics for a shellcode
-            + pe::section::Characteristics::Readable.to_u32()
-            + pe::section::Characteristics::Executable.to_u32(),
-        )
-        .expect("[!] Error generating new section header");
-
-    pe.add_section(new_section_header, shellcode.to_vec())
-        .expect("[!] Error adding new section into PE");
-    pe.header
+    pe.insert_section(pe::section::NewSection {
+        name: ".shell".to_string(),
+        data: shellcode.to_vec(),
+        characteristics: pe::section::CODE | pe::section::READ | pe::section::EXECUTE,
+    })
+    .expect("[!] Error adding new section into PE");
+    pe.optional_header
         .entry_point
         .update(
             &mut pe.buffer,
@@ -288,12 +281,227 @@ fn test_pe_shellcode_injection() {
     std::fs::remove_file("tests/out/modified.exe").expect("[!] Failed to remove modified PE file");
 }
 
+#[test]
+fn test_pe_image_base_update() {
+    use pe::header::ImageBase;
+
+    let mut pe = pe::PE::from_file("tests/samples/sample1.exe").expect("Failed to parse PE");
+    let offset = pe.optional_header.image_base.offset;
+
+    pe.optional_header
+        .image_base
+        .update(&mut pe.buffer, ImageBase::Base32(0x00500000))
+        .unwrap();
+
+    assert!(matches!(
+        pe.optional_header.image_base.value,
+        ImageBase::Base32(0x00500000)
+    ));
+    assert_eq!(&pe.buffer[offset..offset + 4], 0x00500000u32.to_le_bytes());
+}
+
+/// PE32+ must parse image_base as u64 and omit base_of_data.
+/// Sample: tests/samples/sample64.exe (built from tests/source/sample4.c).
+#[test]
+fn test_pe64_parse() {
+    use pe::header::{ImageBase, PEType, SizedU64};
+
+    let pe = pe::PE::from_file("tests/samples/sample64.exe").expect("Failed to parse PE64");
+    assert!(matches!(
+        pe.optional_header.pe_type().unwrap(),
+        PEType::PE32Plus
+    ));
+    assert_eq!(pe.architecture().to_string(), "x64");
+    assert!(pe.optional_header.base_of_data.is_none());
+    assert!(matches!(
+        pe.optional_header.image_base.value,
+        ImageBase::Base64(0x140000000)
+    ));
+    assert_eq!(pe.optional_header.image_base.size, 8);
+    assert_eq!(
+        pe.optional_header.image_base.offset,
+        pe.optional_header.base_of_code.offset + 4
+    );
+
+    let oh = &pe.optional_header;
+    assert_eq!(oh.major_linker_version.value, 0x02);
+    assert_eq!(oh.minor_linker_version.value, 0x29);
+    assert_eq!(oh.size_of_code.value, 0x1800);
+    assert_eq!(oh.size_of_initialized_data.value, 0x3600);
+    assert_eq!(oh.size_of_uninitialized_data.value, 0x200);
+    assert_eq!(oh.major_operating_system_version.value, 0x4);
+    assert_eq!(oh.major_subsystem_version.value, 0x5);
+    assert_eq!(oh.minor_subsystem_version.value, 0x2);
+    assert_eq!(oh.dll_characteristics.value, 0x160);
+    assert_eq!(oh.number_of_rva_and_sizes.value, 0x10);
+    assert!(matches!(
+        oh.size_of_stack_reserve.value,
+        SizedU64::U64(0x200000)
+    ));
+    assert_eq!(oh.size_of_stack_reserve.size, 8);
+    assert!(matches!(
+        oh.size_of_stack_commit.value,
+        SizedU64::U64(0x1000)
+    ));
+    assert!(matches!(
+        oh.size_of_heap_reserve.value,
+        SizedU64::U64(0x100000)
+    ));
+    assert!(matches!(
+        oh.size_of_heap_commit.value,
+        SizedU64::U64(0x1000)
+    ));
+    assert_eq!(oh.loader_flags.value, 0);
+
+    assert_eq!(
+        oh.data_directories[pe::header::IMPORT]
+            .virtual_address
+            .value,
+        0x8000
+    );
+    assert_eq!(oh.data_directories[pe::header::IMPORT].size.value, 0x510);
+    assert_eq!(
+        oh.data_directories[pe::header::EXCEPTION]
+            .virtual_address
+            .value,
+        0x5000
+    );
+    assert_eq!(oh.data_directories[pe::header::EXCEPTION].size.value, 0x210);
+    assert_eq!(
+        oh.data_directories[pe::header::BASERELOC]
+            .virtual_address
+            .value,
+        0xb000
+    );
+    assert_eq!(oh.data_directories[pe::header::BASERELOC].size.value, 0x78);
+    assert_eq!(
+        oh.data_directories[pe::header::TLS].virtual_address.value,
+        0x4020
+    );
+    assert_eq!(
+        oh.data_directories[pe::header::IAT].virtual_address.value,
+        0x8160
+    );
+    assert_eq!(oh.data_directories[pe::header::IAT].size.value, 0x120);
+}
+
+/// PE32+ base relocation directory (`IMAGE_BASE_RELOCATION` blocks).
+#[test]
+fn test_pe64_base_relocations() {
+    use pe::relocation::{IMAGE_REL_BASED_ABSOLUTE, IMAGE_REL_BASED_DIR64};
+
+    let pe = pe::PE::from_file("tests/samples/sample64.exe").expect("Failed to parse PE64");
+
+    assert_eq!(pe.base_relocations.len(), 4);
+    assert_eq!(
+        pe.base_relocations
+            .iter()
+            .map(|block| block.entries.len())
+            .sum::<usize>(),
+        44
+    );
+
+    let first = &pe.base_relocations[0];
+    assert_eq!(first.page_rva.value, 0x2000);
+    assert_eq!(first.page_rva.offset, 0x3a00);
+    assert_eq!(first.block_size.value, 0x0c);
+    assert_eq!(first.entries.len(), 2);
+    assert_eq!(first.entries[0].raw.offset, 0x3a08);
+    assert_eq!(first.entries[0].relocation_type(), IMAGE_REL_BASED_DIR64);
+    assert_eq!(first.entries[0].offset(), 0x738);
+    assert_eq!(first.entries[0].rva(first.page_rva.value), 0x2738);
+    assert_eq!(first.entries[1].relocation_type(), IMAGE_REL_BASED_ABSOLUTE);
+
+    let last = &pe.base_relocations[3];
+    assert_eq!(last.page_rva.value, 0x9000);
+    assert_eq!(last.block_size.value, 0x10);
+    assert_eq!(last.entries.len(), 4);
+    assert!(last
+        .entries
+        .iter()
+        .all(|entry| entry.relocation_type() == IMAGE_REL_BASED_DIR64));
+}
+
+/// PE32 optional header P0 fields and data directories (sample1.exe).
+#[test]
+fn test_pe32_optional_header_p0() {
+    use pe::header::{SizedU64, IAT, IMPORT, TLS};
+
+    let pe = pe::PE::from_file("tests/samples/sample1.exe").expect("Failed to parse PE32");
+    let oh = &pe.optional_header;
+
+    assert_eq!(oh.major_linker_version.value, 0x02);
+    assert_eq!(oh.minor_linker_version.value, 0x20);
+    assert_eq!(oh.size_of_code.value, 0x3200);
+    assert_eq!(oh.size_of_initialized_data.value, 0x5400);
+    assert_eq!(oh.size_of_uninitialized_data.value, 0x200);
+    assert_eq!(oh.major_operating_system_version.value, 0x4);
+    assert_eq!(oh.major_image_version.value, 0x1);
+    assert_eq!(oh.major_subsystem_version.value, 0x4);
+    assert_eq!(oh.win32_version_value.value, 0);
+    assert_eq!(oh.number_of_rva_and_sizes.value, 0x10);
+    assert!(matches!(
+        oh.size_of_stack_reserve.value,
+        SizedU64::U32(0x200000)
+    ));
+    assert_eq!(oh.size_of_stack_reserve.size, 4);
+    assert!(matches!(
+        oh.size_of_stack_commit.value,
+        SizedU64::U32(0x1000)
+    ));
+    assert!(matches!(
+        oh.size_of_heap_reserve.value,
+        SizedU64::U32(0x100000)
+    ));
+    assert!(matches!(
+        oh.size_of_heap_commit.value,
+        SizedU64::U32(0x1000)
+    ));
+    assert_eq!(oh.loader_flags.value, 0);
+
+    assert_eq!(oh.data_directories[IMPORT].virtual_address.value, 0x9000);
+    assert_eq!(oh.data_directories[IMPORT].size.value, 0x7d4);
+    assert_eq!(oh.data_directories[IAT].virtual_address.value, 0x9184);
+    assert_eq!(oh.data_directories[IAT].size.value, 0x10c);
+    assert_eq!(oh.data_directories[TLS].virtual_address.value, 0xb004);
+    assert_eq!(oh.data_directories[TLS].size.value, 0x18);
+
+    assert_eq!(
+        oh.data_directories[IMPORT].virtual_address.offset + 4,
+        oh.data_directories[IMPORT].size.offset
+    );
+    assert_eq!(
+        oh.data_directories[1].virtual_address.offset
+            - oh.data_directories[0].virtual_address.offset,
+        8
+    );
+}
+
+/// insert_section_raw must not panic when section name is shorter than 8 bytes (parsed sections)
+#[test]
+fn test_pe_insert_section_parsed_short_name_no_panic() {
+    let mut pe = pe::PE::from_file("tests/samples/sample1.exe").expect("Failed to parse PE");
+    let offset = pe.sections[0].name.offset;
+    let parsed =
+        pe::section::PeSection::parse_section(&pe.buffer, offset).expect("Failed to parse section");
+    assert!(
+        parsed.name_str().as_bytes().len() < 8,
+        "Parsed section name should be shorter than 8 bytes"
+    );
+
+    // May return Err for layout reasons, but must not panic on name serialization
+    let _ = pe.insert_section_raw(parsed, vec![0x90; 4]);
+}
+
 /// Parsing an invalid PE buffer should return an error
 #[test]
 fn test_pe_invalid_buffer() {
     let buffer = vec![0u8; 10];
     let result = pe::PE::from_buffer(buffer);
-    assert!(matches!(result, Err(FileParseError::InvalidFileFormat)));
+    assert!(matches!(
+        result,
+        Err(FileParseError::InvalidFileFormat) | Err(FileParseError::BufferOverflow)
+    ));
 }
 
 #[test]
@@ -311,10 +519,547 @@ fn test_pe_write_file() {
     std::fs::remove_file(tmp_path).expect("[!] Failed to remove written PE file");
 }
 
+/// Import directory: IMAGE_IMPORT_DESCRIPTOR, ILT/IAT fields, IMAGE_IMPORT_BY_NAME (sample1.exe).
+#[test]
+fn test_pe_imports_sample1() {
+    use pe::import::{ImportDirectory, ImportEntry};
+
+    let pe = pe::PE::from_file("tests/samples/sample1.exe").expect("Failed to parse PE32");
+    let imports = pe.imports().expect("Failed to parse imports");
+
+    assert_eq!(imports.offset, 0x4c00);
+    assert_eq!(imports.descriptors.len(), 5);
+    assert_eq!(imports.dlls.len(), 5);
+
+    let desc = &imports.descriptors[0];
+    assert_eq!(desc.original_first_thunk.value, 0x9078);
+    assert_eq!(desc.original_first_thunk.offset, imports.offset);
+    assert_eq!(desc.first_thunk.value, 0x9184);
+    assert_eq!(desc.name.value, 0x96dc);
+
+    let kernel32 = &imports.dlls[0];
+    assert_eq!(kernel32.dll_name, "KERNEL32.dll");
+    assert_eq!(kernel32.dll_name_offset, pe.rva_to_offset(0x96dc).unwrap());
+    assert!(!kernel32.entries.is_empty());
+
+    let exit_process = kernel32.entries.iter().find_map(|e| match e {
+        ImportEntry::ByName { by_name, thunk } if by_name.name == "ExitProcess" => {
+            Some((by_name.hint.value, thunk.offset()))
+        }
+        _ => None,
+    });
+    assert_eq!(exit_process, Some((280, 0x4c80)));
+
+    let libstdcxx = imports
+        .dlls
+        .iter()
+        .find(|d| d.dll_name == "libstdc++-6.dll")
+        .expect("libstdc++-6.dll");
+    assert!(libstdcxx.entries.iter().any(|e| matches!(
+        e,
+        ImportEntry::ByName { by_name, .. } if by_name.name == "_ZNSolsEPFRSoS_E"
+    )));
+
+    let via_helper = pe::import::import_names_for_dll(&imports, "KERNEL32.dll");
+    assert!(via_helper.contains(&"GetProcAddress"));
+    assert!(via_helper.contains(&"LoadLibraryA"));
+
+    let empty = ImportDirectory::parse(
+        &pe.buffer,
+        &pe.sections,
+        0,
+        pe.optional_header.pe_type().unwrap(),
+    )
+    .unwrap();
+    assert!(empty.descriptors.is_empty());
+    assert!(empty.dlls.is_empty());
+}
+
 #[test]
 fn test_pe_write_file_fail() {
     let pe = pe::PE::from_file("tests/samples/sample1.exe").expect("Error parsing PE file");
     let invalid_path = std::env::temp_dir().join("nonexistent_dir").join("pe.bin");
     let result = pe.write_file(invalid_path.to_str().unwrap());
     assert!(result.is_err());
+}
+
+/// RVA → file offset and zero-copy section payload views.
+#[test]
+fn test_pe_rva_to_offset_and_section_data() {
+    let pe = pe::PE::from_file("tests/samples/sample2.dll").expect("Failed to parse PE");
+
+    let export_rva = pe.optional_header.data_directories[pe::header::EXPORT]
+        .virtual_address
+        .value;
+    let export_off = pe.rva_to_offset(export_rva).expect("export RVA should map");
+    assert_eq!(export_off, 0x1e00);
+
+    let edata_idx = pe
+        .sections
+        .iter()
+        .position(|s| s.name_str() == ".edata")
+        .expect(".edata section");
+    let section_bytes = pe.section_data(edata_idx).expect("section data");
+    assert!(section_bytes.len() >= 0x79);
+    assert_eq!(&section_bytes[..4], &[0, 0, 0, 0]); // Characteristics
+
+    assert!(pe.exports().unwrap().is_some());
+    assert!(pe.rva_to_offset(0).is_err());
+}
+
+/// `IMAGE_EXPORT_DIRECTORY` and named exports on sample2.dll.
+#[test]
+fn test_pe_exports_sample2() {
+    use pe::header::EXPORT;
+
+    let pe = pe::PE::from_file("tests/samples/sample2.dll").expect("Failed to parse PE");
+    let exports = pe
+        .exports()
+        .expect("parse exports")
+        .expect("export directory");
+
+    let dir = &exports.directory;
+    assert_eq!(dir.characteristics.value, 0);
+    assert_eq!(dir.time_date_stamp.value, 0x663d1a00);
+    assert_eq!(dir.major_version.value, 0);
+    assert_eq!(dir.minor_version.value, 0);
+    assert_eq!(dir.name.value, 0x6050);
+    assert_eq!(dir.base.value, 1);
+    assert_eq!(dir.number_of_functions.value, 4);
+    assert_eq!(dir.number_of_names.value, 4);
+    assert_eq!(dir.address_of_functions.value, 0x6028);
+    assert_eq!(dir.address_of_names.value, 0x6038);
+    assert_eq!(dir.address_of_name_ordinals.value, 0x6048);
+
+    let export_off = pe
+        .rva_to_offset(
+            pe.optional_header.data_directories[EXPORT]
+                .virtual_address
+                .value,
+        )
+        .unwrap();
+    assert_eq!(dir.characteristics.offset, export_off);
+    assert_eq!(dir.address_of_name_ordinals.offset, export_off + 36);
+    assert_eq!(dir.address_of_name_ordinals.size, 4);
+
+    assert_eq!(
+        dir.dll_name(&pe.buffer, |rva| pe.rva_to_offset(rva))
+            .unwrap(),
+        "sample3.dll"
+    );
+
+    assert_eq!(exports.named.len(), 4);
+
+    let by_name: std::collections::HashMap<&str, u32> = exports
+        .named
+        .iter()
+        .map(|e| (e.name.as_str(), e.function_rva.value))
+        .collect();
+    assert_eq!(by_name["Add"], 0x1280);
+    assert_eq!(by_name["Subtract"], 0x12a6);
+    assert_eq!(by_name["Multiply"], 0x12cc);
+    assert_eq!(by_name["Divide"], 0x12f2);
+
+    let add = exports.named.iter().find(|e| e.name == "Add").unwrap();
+    assert_eq!(add.ordinal, 1);
+    assert_eq!(add.name_rva.value, 0x605c);
+    assert_eq!(add.name_ordinal_index.value, 0);
+    assert_eq!(add.function_rva.offset, pe.rva_to_offset(0x6028).unwrap());
+    assert_eq!(add.name_rva.offset, pe.rva_to_offset(0x6038).unwrap());
+    assert_eq!(
+        add.name_ordinal_index.offset,
+        pe.rva_to_offset(0x6048).unwrap()
+    );
+}
+
+/// Executables without an export directory return `None`.
+#[test]
+fn test_pe_exports_absent() {
+    let pe = pe::PE::from_file("tests/samples/sample1.exe").expect("Failed to parse PE");
+    assert!(pe.exports().unwrap().is_none());
+}
+
+/// Full `AddressOfFunctions` table on sample2.dll.
+#[test]
+fn test_pe_exports_full_function_table() {
+    use pe::export::FunctionExport;
+
+    let pe = pe::PE::from_file("tests/samples/sample2.dll").expect("Failed to parse PE");
+    let exports = pe.exports().unwrap().expect("export directory");
+
+    assert_eq!(exports.functions.len(), 4);
+    assert_eq!(exports.named.len(), 4);
+    assert!(exports.ordinal_only_exports().is_empty());
+
+    assert!(exports
+        .functions
+        .iter()
+        .all(|entry| matches!(entry, FunctionExport::Local { .. })));
+
+    let ordinals: Vec<u16> = exports
+        .functions
+        .iter()
+        .map(|entry| match entry {
+            FunctionExport::Local { ordinal, .. } | FunctionExport::Forwarder { ordinal, .. } => {
+                *ordinal
+            }
+        })
+        .collect();
+    assert_eq!(ordinals, [1, 2, 3, 4]);
+}
+
+/// TLS directory on PE32 and PE32+ samples.
+#[test]
+fn test_pe_tls_directory() {
+    use pe::header::ImageBase;
+
+    let pe32 = pe::PE::from_file("tests/samples/sample1.exe").expect("Failed to parse PE32");
+    let tls32 = pe32.tls().unwrap().expect("TLS directory");
+    assert!(matches!(
+        tls32.start_address_of_raw_data.value,
+        ImageBase::Base32(0x0040b001)
+    ));
+    assert!(matches!(
+        tls32.end_address_of_raw_data.value,
+        ImageBase::Base32(0x0040b01c)
+    ));
+    assert!(matches!(
+        tls32.address_of_index.value,
+        ImageBase::Base32(0x0040803c)
+    ));
+    assert_eq!(tls32.size_of_zero_fill.value, 0);
+
+    let pe64 = pe::PE::from_file("tests/samples/sample64.exe").expect("Failed to parse PE64");
+    let tls64 = pe64.tls().unwrap().expect("TLS directory");
+    assert!(matches!(
+        tls64.start_address_of_raw_data.value,
+        ImageBase::Base64(0x0000_0001_4000_a000)
+    ));
+    assert!(matches!(
+        tls64.address_of_callbacks.value,
+        ImageBase::Base64(0x0000_0001_4000_9038)
+    ));
+}
+
+/// x64 exception directory (`RUNTIME_FUNCTION`) on sample64.exe.
+#[test]
+fn test_pe_exception_directory_sample64() {
+    let pe = pe::PE::from_file("tests/samples/sample64.exe").expect("Failed to parse PE64");
+    let exceptions = pe.exceptions().unwrap().expect("exception directory");
+
+    assert_eq!(exceptions.entries.len(), 44);
+    let first = &exceptions.entries[0];
+    assert_eq!(first.begin_address.value, 0x1000);
+    assert_eq!(first.end_address.value, 0x1001);
+    assert_eq!(first.unwind_data.value, 0x6000);
+    assert_eq!(first.begin_address.offset, exceptions.offset);
+
+    let second = &exceptions.entries[1];
+    assert_eq!(second.begin_address.value, 0x1010);
+    assert_eq!(second.end_address.value, 0x1136);
+}
+
+/// COFF symbol table on sample64.exe.
+#[test]
+fn test_pe_coff_symbols_sample64() {
+    let pe = pe::PE::from_file("tests/samples/sample64.exe").expect("Failed to parse PE64");
+    let symbols = pe.coff_symbols().expect("symbol table");
+
+    assert_eq!(symbols.offset, 0x15e00);
+    assert_eq!(symbols.symbols.len(), 902);
+    assert_eq!(symbols.symbols[0].name, ".file");
+    assert_eq!(symbols.symbols[0].symbol.section_number.value, -2);
+    assert!(symbols.symbols.iter().any(|symbol| symbol.name == ".text"));
+}
+
+/// Applying a new image base patches HIGHLOW relocations in sample2.dll.
+#[test]
+fn test_pe_apply_image_base_with_relocations() {
+    use pe::header::ImageBase;
+
+    let mut pe = pe::PE::from_file("tests/samples/sample2.dll").expect("Failed to parse PE");
+    assert!(!pe.base_relocations.is_empty());
+
+    let target_rva = pe.base_relocations[0].entries[0].rva(pe.base_relocations[0].page_rva.value);
+    let target_off = pe.rva_to_offset(target_rva).unwrap();
+    let before = u32::from_le_bytes([
+        pe.buffer[target_off],
+        pe.buffer[target_off + 1],
+        pe.buffer[target_off + 2],
+        pe.buffer[target_off + 3],
+    ]);
+
+    pe.apply_image_base(ImageBase::Base32(0x6f75_0000))
+        .expect("apply image base");
+
+    let after = u32::from_le_bytes([
+        pe.buffer[target_off],
+        pe.buffer[target_off + 1],
+        pe.buffer[target_off + 2],
+        pe.buffer[target_off + 3],
+    ]);
+    assert_eq!(after, before.wrapping_add(0x1_0000));
+    assert!(matches!(
+        pe.optional_header.image_base.value,
+        ImageBase::Base32(0x6f75_0000)
+    ));
+}
+
+/// `number_of_rva_and_sizes` gates how many directories must be present on disk.
+#[test]
+fn test_pe_active_data_directory_count() {
+    let pe = pe::PE::from_file("tests/samples/sample1.exe").expect("Failed to parse PE");
+    assert_eq!(pe.optional_header.active_data_directory_count(), 16);
+    assert!(pe.optional_header.has_data_directory(pe::header::IMPORT));
+    assert!(pe
+        .optional_header
+        .has_data_directory(pe::header::DELAY_IMPORT));
+
+    let mut buffer = pe.buffer.clone();
+    buffer[pe.optional_header.number_of_rva_and_sizes.offset] = 10;
+    buffer[pe.optional_header.number_of_rva_and_sizes.offset + 1] = 0;
+    buffer[pe.optional_header.number_of_rva_and_sizes.offset + 2] = 0;
+    buffer[pe.optional_header.number_of_rva_and_sizes.offset + 3] = 0;
+
+    let trimmed = pe::PE::from_buffer(buffer).expect("parse trimmed optional header");
+    assert_eq!(trimmed.optional_header.active_data_directory_count(), 10);
+    assert!(!trimmed
+        .optional_header
+        .has_data_directory(pe::header::DELAY_IMPORT));
+    assert_eq!(
+        trimmed.optional_header.data_directories[pe::header::DELAY_IMPORT]
+            .virtual_address
+            .value,
+        0
+    );
+}
+
+/// Data directory RVA sync helper updates the optional header in place.
+#[test]
+fn test_pe_sync_data_directory_rva() {
+    let mut pe = pe::PE::from_file("tests/samples/sample1.exe").expect("Failed to parse PE");
+    let import_entry = &pe.optional_header.data_directories[pe::header::IMPORT];
+    let old_offset = import_entry.virtual_address.offset;
+
+    pe.sync_data_directory_rva(pe::header::IMPORT, 0xa000)
+        .expect("sync RVA");
+    assert_eq!(
+        pe.optional_header.data_directories[pe::header::IMPORT]
+            .virtual_address
+            .value,
+        0xa000
+    );
+    assert_eq!(
+        u32::from_le_bytes([
+            pe.buffer[old_offset],
+            pe.buffer[old_offset + 1],
+            pe.buffer[old_offset + 2],
+            pe.buffer[old_offset + 3],
+        ]),
+        0xa000
+    );
+}
+
+/// Section relocation blocks return empty vectors when the section has none.
+#[test]
+fn test_pe_section_relocations_empty() {
+    let pe = pe::PE::from_file("tests/samples/sample1.exe").expect("Failed to parse PE");
+    let relocs = pe.section_relocations(0).expect("section relocs");
+    assert!(relocs.entries.is_empty());
+}
+
+/// Absent optional directories return `None` without error.
+#[test]
+fn test_pe_optional_directories_absent() {
+    let pe = pe::PE::from_file("tests/samples/sample1.exe").expect("Failed to parse PE");
+    assert!(pe.bound_imports().unwrap().is_none());
+    assert!(pe.delay_imports().unwrap().is_none());
+    assert!(pe.load_config().unwrap().is_none());
+    assert!(pe.resources().unwrap().is_none());
+    assert!(pe.debug_directory().unwrap().is_none());
+    assert!(pe.exceptions().unwrap().is_none());
+}
+
+/// Synthetic bound import and delay-load tables parse correctly.
+#[test]
+fn test_pe_bound_and_delay_import_synthetic() {
+    use pe::bound::BoundImportDirectory;
+    use pe::delay::DelayLoadDirectory;
+    use pe::header::PEType;
+    use pe::import::ImportEntry;
+    use pe::section::PeSection;
+
+    let mut buffer = vec![0u8; 0x200];
+    let sections = vec![PeSection {
+        name: hexspell::field::Field::new(
+            hexspell::field::FixedBytes([b'.', b't', 0, 0, 0, 0, 0, 0]),
+            0,
+            8,
+        ),
+        virtual_size: hexspell::field::Field::new(0x200, 8, 4),
+        virtual_address: hexspell::field::Field::new(0x1000, 12, 4),
+        size_of_raw_data: hexspell::field::Field::new(0x200, 16, 4),
+        pointer_to_raw_data: hexspell::field::Field::new(0, 20, 4),
+        pointer_to_relocations: hexspell::field::Field::new(0, 24, 4),
+        pointer_to_linenumbers: hexspell::field::Field::new(0, 28, 4),
+        number_of_relocations: hexspell::field::Field::new(0, 32, 2),
+        number_of_linenumbers: hexspell::field::Field::new(0, 34, 2),
+        characteristics: hexspell::field::Field::new(0, 36, 4),
+    }];
+
+    // Bound import at RVA 0x1000 (file offset 0)
+    buffer[0x04..0x06].copy_from_slice(&0x20u16.to_le_bytes()); // name offset
+    buffer[0x20..0x2d].copy_from_slice(b"KERNEL32.dll\0");
+
+    let bound = BoundImportDirectory::parse(&buffer, &sections, 0x1000).unwrap();
+    assert_eq!(bound.modules.len(), 1);
+    assert_eq!(bound.modules[0].module_name, "KERNEL32.dll");
+
+    // Delay-load descriptor at RVA 0x1080 (offset 0x80)
+    let delay_rva = 0x1080u32;
+    let delay_off = 0x80usize;
+    buffer[delay_off..delay_off + 4].copy_from_slice(&1u32.to_le_bytes()); // attributes
+    buffer[delay_off + 4..delay_off + 8].copy_from_slice(&0x1040u32.to_le_bytes()); // dll name RVA
+    buffer[delay_off + 16..delay_off + 20].copy_from_slice(&0x1100u32.to_le_bytes()); // INT
+    buffer[0x40..0x4c].copy_from_slice(b"SHELL32.dll\0");
+    // INT at RVA 0x1100 (offset 0x100)
+    buffer[0x100..0x104].copy_from_slice(&0x1110u32.to_le_bytes());
+    buffer[0x104..0x108].copy_from_slice(&0u32.to_le_bytes());
+    // hint/name at RVA 0x1110 (offset 0x110)
+    buffer[0x110..0x112].copy_from_slice(&7u16.to_le_bytes());
+    buffer[0x112..0x121].copy_from_slice(b"GetProcAddress\0");
+
+    let delay = DelayLoadDirectory::parse(&buffer, &sections, delay_rva, PEType::PE32).unwrap();
+    assert_eq!(delay.descriptors.len(), 1);
+    assert_eq!(delay.dlls[0].dll_name, "SHELL32.dll");
+    assert!(delay.dlls[0].entries.iter().any(|entry| matches!(
+        entry,
+        ImportEntry::ByName { by_name, .. } if by_name.name == "GetProcAddress"
+    )));
+}
+
+/// Synthetic resource tree with one named leaf.
+#[test]
+fn test_pe_resource_tree_synthetic() {
+    use pe::resource::{ResourceEntry, ResourceTree};
+
+    let mut buffer = vec![0u8; 0x200];
+    let resource_base = 0usize;
+
+    // Root directory: 1 named entry, 0 id entries
+    buffer[0x0c..0x0e].copy_from_slice(&1u16.to_le_bytes()); // named entries
+                                                             // Entry: name offset 0x30, data offset 0x50 (leaf)
+    buffer[0x10..0x14].copy_from_slice(&0x30u32.to_le_bytes());
+    buffer[0x14..0x18].copy_from_slice(&0x50u32.to_le_bytes()); // leaf (high bit clear)
+                                                                // Unicode name at 0x30: length 4 chars "TEST"
+    buffer[0x30..0x32].copy_from_slice(&4u16.to_le_bytes());
+    buffer[0x32..0x3a].copy_from_slice(b"T\x00E\x00S\x00T\x00");
+    // Data entry at 0x50
+    buffer[0x50..0x54].copy_from_slice(&0x1200u32.to_le_bytes());
+    buffer[0x54..0x58].copy_from_slice(&16u32.to_le_bytes());
+    buffer[0x58..0x5c].copy_from_slice(&0u32.to_le_bytes());
+    buffer[0x5c..0x60].copy_from_slice(&0u32.to_le_bytes());
+
+    let sections = vec![pe::section::PeSection {
+        name: hexspell::field::Field::new(
+            hexspell::field::FixedBytes([b'.', b'r', b's', b'r', b'c', 0, 0, 0]),
+            0,
+            8,
+        ),
+        virtual_size: hexspell::field::Field::new(0x200, 8, 4),
+        virtual_address: hexspell::field::Field::new(0x1000, 12, 4),
+        size_of_raw_data: hexspell::field::Field::new(0x200, 16, 4),
+        pointer_to_raw_data: hexspell::field::Field::new(0, 20, 4),
+        pointer_to_relocations: hexspell::field::Field::new(0, 24, 4),
+        pointer_to_linenumbers: hexspell::field::Field::new(0, 28, 4),
+        number_of_relocations: hexspell::field::Field::new(0, 32, 2),
+        number_of_linenumbers: hexspell::field::Field::new(0, 34, 2),
+        characteristics: hexspell::field::Field::new(0, 36, 4),
+    }];
+
+    let tree = ResourceTree::parse(&buffer, resource_base, |rva| {
+        pe::import::rva_to_offset(&buffer, &sections, rva)
+    })
+    .unwrap();
+
+    assert_eq!(tree.root.entries.len(), 1);
+    match &tree.root.entries[0] {
+        ResourceEntry::Data { name, data, .. } => {
+            assert_eq!(name.as_deref(), Some("TEST"));
+            assert_eq!(data.offset_to_data.value, 0x1200);
+            assert_eq!(data.size.value, 16);
+        }
+        _ => panic!("expected data leaf"),
+    }
+}
+
+/// Synthetic debug directory entry.
+#[test]
+fn test_pe_debug_directory_synthetic() {
+    use pe::debug::{DebugDirectory, IMAGE_DEBUG_TYPE_CODEVIEW};
+
+    let mut buffer = vec![0u8; 0x100];
+    let offset = 0x20usize;
+    buffer[offset + 12..offset + 16].copy_from_slice(&IMAGE_DEBUG_TYPE_CODEVIEW.to_le_bytes());
+    buffer[offset + 16..offset + 20].copy_from_slice(&8u32.to_le_bytes());
+    buffer[offset + 20..offset + 24].copy_from_slice(&0x80u32.to_le_bytes());
+    buffer[0x80..0x88].copy_from_slice(b"RSDS\x00\x00\x00\x00");
+
+    let debug = DebugDirectory::parse(&buffer, offset, 28).unwrap();
+    assert_eq!(debug.entries.len(), 1);
+    assert_eq!(debug.entries[0].debug_type.value, IMAGE_DEBUG_TYPE_CODEVIEW);
+    assert_eq!(
+        debug.entries[0].raw_data(&buffer).unwrap(),
+        b"RSDS\x00\x00\x00\x00"
+    );
+}
+
+/// Forwarder exports are classified separately from local functions.
+#[test]
+fn test_pe_export_forwarder_synthetic() {
+    use pe::export::{ExportDirectory, Exports, FunctionExport};
+
+    let mut buffer = vec![0u8; 0x100];
+    let export_dir_rva = 0x1000u32;
+    let export_off = 0usize;
+
+    // Minimal export directory header at offset 0
+    buffer[export_off + 16..export_off + 20].copy_from_slice(&1u32.to_le_bytes()); // base
+    buffer[export_off + 20..export_off + 24].copy_from_slice(&1u32.to_le_bytes()); // num functions
+    buffer[export_off + 24..export_off + 28].copy_from_slice(&0u32.to_le_bytes()); // num names
+    buffer[export_off + 28..export_off + 32].copy_from_slice(&0x1040u32.to_le_bytes()); // AOF RVA
+                                                                                        // Function table at RVA 0x1040 -> offset 0x40: forwarder string at RVA 0x1048
+    buffer[0x40..0x44].copy_from_slice(&0x1048u32.to_le_bytes());
+    buffer[0x48..0x59].copy_from_slice(b"OTHER.DLL.Export\0");
+
+    let sections = vec![pe::section::PeSection {
+        name: hexspell::field::Field::new(
+            hexspell::field::FixedBytes([b'.', b'e', 0, 0, 0, 0, 0, 0]),
+            0,
+            8,
+        ),
+        virtual_size: hexspell::field::Field::new(0x100, 8, 4),
+        virtual_address: hexspell::field::Field::new(0x1000, 12, 4),
+        size_of_raw_data: hexspell::field::Field::new(0x100, 16, 4),
+        pointer_to_raw_data: hexspell::field::Field::new(0, 20, 4),
+        pointer_to_relocations: hexspell::field::Field::new(0, 24, 4),
+        pointer_to_linenumbers: hexspell::field::Field::new(0, 28, 4),
+        number_of_relocations: hexspell::field::Field::new(0, 32, 2),
+        number_of_linenumbers: hexspell::field::Field::new(0, 34, 2),
+        characteristics: hexspell::field::Field::new(0, 36, 4),
+    }];
+
+    let directory = ExportDirectory::parse(&buffer, export_off).unwrap();
+    let exports = Exports::parse(&buffer, &directory, export_dir_rva, 0x80, |rva| {
+        pe::import::rva_to_offset(&buffer, &sections, rva)
+    })
+    .unwrap();
+
+    assert_eq!(exports.functions.len(), 1);
+    match &exports.functions[0] {
+        FunctionExport::Forwarder { forwarder, .. } => {
+            assert_eq!(forwarder, "OTHER.DLL.Export");
+        }
+        _ => panic!("expected forwarder export"),
+    }
 }

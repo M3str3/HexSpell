@@ -8,9 +8,10 @@
 //! extended as additional flags or metadata become relevant.
 
 use crate::errors;
-use crate::field::Field;
+use crate::field::{Field, FixedBytes};
 use crate::utils::{extract_u16, extract_u32};
 
+/// Named PE section characteristic flags (subset).
 pub enum Characteristics {
     Executable,
     Writeable,
@@ -33,8 +34,31 @@ impl Characteristics {
     }
 }
 
+/// `IMAGE_SCN_CNT_CODE`.
+pub const CODE: u32 = 0x00000020;
+/// `IMAGE_SCN_CNT_INITIALIZED_DATA`.
+pub const INITIALIZED_DATA: u32 = 0x00000040;
+/// `IMAGE_SCN_MEM_EXECUTE`.
+pub const EXECUTE: u32 = 0x20000000;
+/// `IMAGE_SCN_MEM_READ`.
+pub const READ: u32 = 0x40000000;
+/// `IMAGE_SCN_MEM_WRITE`.
+pub const WRITE: u32 = 0x80000000;
+
+/// Input for [`crate::pe::PE::insert_section`].
+pub struct NewSection {
+    /// Section name (truncated to 8 bytes on disk).
+    pub name: String,
+    /// Raw section contents.
+    pub data: Vec<u8>,
+    /// `Characteristics` flags combined with `|`.
+    pub characteristics: u32,
+}
+
+/// PE section header (`IMAGE_SECTION_HEADER`) — 40 bytes.
 pub struct PeSection {
-    pub name: Field<String>,
+    /// 8-byte section name (not necessarily NUL-terminated).
+    pub name: Field<FixedBytes<8>>,
     pub virtual_size: Field<u32>,
     pub virtual_address: Field<u32>,
     pub size_of_raw_data: Field<u32>,
@@ -47,6 +71,11 @@ pub struct PeSection {
 }
 
 impl PeSection {
+    /// Returns the section name as a trimmed UTF-8 string.
+    pub fn name_str(&self) -> &str {
+        self.name.value.as_str()
+    }
+
     /// Checks if the section is executable
     pub fn is_executable(&self) -> bool {
         self.characteristics.value & 0x20000000 != 0
@@ -140,21 +169,12 @@ impl PeSection {
     }
 
     /// Parses a section of a PE file from the given buffer and offset.
-    ///
-    /// ## Arguments
-    /// * `buffer` - The PE file data slice.
-    /// * `offset` - The offset within that buffer where the section header begins.
-    ///
-    /// ## Returns
-    /// A `io::Result` with PeSection
     pub fn parse_section(buffer: &[u8], offset: usize) -> Result<Self, errors::FileParseError> {
         if buffer.len() < offset + 40 {
             return Err(errors::FileParseError::BufferOverflow);
         }
 
-        let name = String::from_utf8_lossy(&buffer[offset..offset + 8])
-            .trim_end_matches('\0')
-            .to_string();
+        let name = FixedBytes::from_slice(&buffer[offset..offset + 8]);
         let virtual_size = extract_u32(buffer, offset + 8)?;
         let virtual_address = extract_u32(buffer, offset + 12)?;
         let size_of_raw_data = extract_u32(buffer, offset + 16)?;
