@@ -1,206 +1,145 @@
-# HexSpell: The Executable Rust Parser
-## Table of Contents
-- [Description](#description)
-- [Features](#features)
-- [Installation](#installation)
-- [Examples of use](#examples-of-use)
-  - [Parsing PE Files](#parsing-pe-files)
-  - [Parsing ELF Files](#parsing-elf-files)
-  - [Parsing Mach-O Files](#parsing-mach-o-files)
-  - [Modify PE Attributes](#modify-pe-attributes)
-  - [Create new section and injecting a shellcode](#create-new-section-and-injecting-a-shellcode)
-- [Support or Contact](#support-or-contact)
-- [License](#license)
-## Description
-HexSpell is an open source library created in Rust, designed to parse and manipulate various types of executable files, including PE (Portable Executable), ELF (Executable and Linkable Format), and Mach-O binaries. The library is built without dependencies, with the aim of providing an easy-to-use and flexible tool for developers to analyse and modify executables.
+<div align="center">
 
-<p align="center">
-<img src="https://github.com/M3str3/HexSpell/assets/62236987/8d5d500a-acb1-45d0-a63e-ec610b5e5ccc" style="display: block;width:50%;height:50%; margin: 0 auto">
-</p>
+# HexSpell
 
-## Features
-- **No Dependency:** The library is built entirely without dependencies, making it lightweight and easy to maintain. 
-- **Multi-format Support:** Parses and manipulates PE (Windows), ELF (Linux), and Mach-O (macOS) formats, including FAT Mach-O binaries
-- **Automatic Endianness Handling:** Detects and respects ELF and Mach-O endianness during parsing
-- **Executable Manipulation:** Modify executable attributes such as entry points, inject sections, update headers, and write changes back to disk using `write_file`
-- **Checksum Calculation:** Validate or update checksums of parsed files
-- **Cross-platform Support:** Provides consistent parsing and manipulation tools across multiple platforms
+**A lightweight, dependency-free Rust library for parsing and patching PE, ELF, and Mach-O executables.**
+
+<img src="https://github.com/M3str3/HexSpell/assets/62236987/8d5d500a-acb1-45d0-a63e-ec610b5e5ccc" alt="HexSpell" width="400">
+
+[![Crates.io](https://img.shields.io/crates/v/hexspell.svg)](https://crates.io/crates/hexspell)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
+</div>
+
+## Overview
+
+HexSpell is a small parsing library for executable binaries. It has **no runtime dependencies** —
+only the Rust standard library — so it stays easy to embed, audit, and ship.
+
+Parse PE, ELF, and Mach-O files (including FAT Mach-O), read headers and tables, and write changes
+back to disk when you need to patch an executable.
+
+- **Zero dependencies** — no external crates at runtime.
+- **Lightweight** — focused on parsing and patching; no heavy framework around the formats.
+- **Multi-format** — PE (Windows), ELF (Linux), and Mach-O (macOS) in one crate.
+- **Parse and patch** — read entry points, sections, imports, exports, and more; update headers and write the file back with `write_file`.
+- **Structural edits** — insert sections and load segments, sync layout, apply relocations.
+- **Lazy parsers** — imports, exports, TLS, exceptions, symbols, and other tables parsed on demand.
+- **Endianness-aware** — ELF and Mach-O byte order handled via `ByteOrder`.
+
+See [`docs/coverage.md`](docs/coverage.md) for exactly what is modeled per format.
 
 ## Installation
-To include HexSpell in your Rust project, add it to your dependencies with Cargo:
 
 ```bash
 cargo add hexspell
 ```
 
-Or manually add this line to your `Cargo.toml`:
+Or add it manually to `Cargo.toml`:
 
 ```toml
 [dependencies]
 hexspell = "1.0"
 ```
 
-## Documentation
+## Quick start
 
-- [User guide](docs/guide.md) — design principles, per-format examples, error handling
-- [Layout accessors](docs/layout.md) — `field()` / `field_mut()` on ELF/Mach-O layout enums
-- [Coverage matrix](docs/coverage.md) — what is modeled vs not (PE / ELF / Mach-O)
-
-## Examples of use
-
-### Parsing PE Files
-HexSpell allows you to parse and display important information from PE files.
 ```rust
 use hexspell::pe::PE;
 
 fn main() {
-    let file_name = "tests/samples/sample1.exe";
-    let pe = PE::from_file(file_name).unwrap();
+    let mut pe = PE::from_file("app.exe").expect("failed to parse PE");
 
-    println!("╔════════════════════════════════════════╗");
-    println!("║ File: {:<33}║",                             file_name);
-    println!("╠════════════════════════════════════════╣");
-    println!("║ PE Checksum:          0x{:08X}       ║",    pe.optional_header.checksum.value);
-    println!("║ Architecture:         {:<17}║",             pe.architecture());
-    println!("║ PE Type:              {:?}             ║",  pe.optional_header.pe_type().unwrap());
-    println!("║ Number of sections:   0x{:08X}       ║",    pe.coff_header.number_of_sections.value);
-    println!("║ Optional magic:       0x{:04X}           ║",  pe.optional_header.magic.value);
-    println!("║ Size of image:        0x{:08X}       ║",    pe.optional_header.size_of_image.value);
-    println!("╚════════════════════════════════════════╝");
+    // Read header fields from the parsed file.
+    println!("architecture: {}", pe.architecture());
+    println!("entry point:  {:#x}", pe.optional_header.entry_point.value);
+
+    // Patch the entry point and write the modified file back to disk.
+    pe.optional_header
+        .entry_point
+        .update(&mut pe.buffer, 0x36D4)
+        .unwrap();
+
+    pe.write_file("app-patched.exe").expect("failed to write PE");
 }
 ```
-#### OUTPUT
-```plain
-╔════════════════════════════════════════╗
-║ File: tests/samples/sample1.exe        ║
-╠════════════════════════════════════════╣
-║ PE Checksum:          0x00007106       ║
-║ Architecture:         x86              ║
-║ PE Type:              PE32             ║
-║ Number of sections:   0x00000008       ║
-║ Size of image:        0x0000C000       ║
-╚════════════════════════════════════════╝
+
+ELF and Mach-O follow the same pattern (`ELF::from_file`, `MachO::from_file`). For big-endian
+binaries, use `Field::update_with` with the format's `byte_order()`.
+
+## Examples
+
+Reading key header fields per format:
+
+```rust
+use hexspell::pe::PE;
+
+let pe = PE::from_file("tests/samples/sample1.exe").unwrap();
+println!("PE type:     {:?}", pe.optional_header.pe_type().unwrap());
+println!("checksum:    {:#010x}", pe.optional_header.checksum.value);
+println!("sections:    {}", pe.coff_header.number_of_sections.value);
+println!("size_of_img: {:#x}", pe.optional_header.size_of_image.value);
 ```
-### Parsing ELF Files
-You can also easily parse ELF binaries (Linux executables) with HexSpell.
+
 ```rust
 use hexspell::elf::ELF;
 
-fn main() {
-    let file_name = "tests/samples/linux";
-    let elf_file = ELF::from_file("tests/samples/linux").unwrap();
+let elf = ELF::from_file("tests/samples/linux").unwrap();
+println!("entry:      {:#x}", elf.header.entry.value);
+println!("byte order: {:?}", elf.byte_order().unwrap());
+println!("ph / sh:    {} / {}", elf.header.ph_num.value, elf.header.sh_num.value);
+```
 
-    println!("╔════════════════════════════════════════╗");
-    println!("║ File: {:<33}║",                             file_name);
-    println!("╠════════════════════════════════════════╣");
-    println!("║ Entry point:          0x{:08X}       ║",    elf_file.header.entry.value);
-    println!("║ Program headers:      {:<17}║",             elf_file.header.ph_num.value);
-    println!("║ Section headers:      {:<17}║",             elf_file.header.sh_num.value);
-    println!("║ Byte order:           {:?}             ║",  elf_file.byte_order().unwrap());
-    println!("║ EI_DATA offset:       {:<17}║",             elf_file.header.ei_data.offset);
-    println!("╚════════════════════════════════════════╝");
-}
-```
-#### OUTPUT
-```plain
-╔════════════════════════════════════════╗
-║ File: tests/samples/linux              ║
-╠════════════════════════════════════════╣
-║ Entry point:          0x00001060       ║
-║ Program headers:      13               ║
-║ Section headers:      31               ║
-║ Byte order:           Little           ║
-╚════════════════════════════════════════╝
-```
-### Parsing Mach-O Files
-Mach-O files, commonly used in macOS, can also be parsed and inspected.
 ```rust
 use hexspell::macho::MachO;
 
-fn main() {
-    let file_name = "tests/samples/machO-OSX-x86-ls";
-    let macho_file = MachO::from_file(file_name).unwrap();
-
-    println!("╔════════════════════════════════════════╗");
-    println!("║ File: {:<33}║",                              file_name);
-    println!("╠════════════════════════════════════════╣");
-    println!("║ Number of load commands: {:<14}║",           macho_file.header.ncmds.value);
-    println!("║ File type:               {:?}             ║", macho_file.header.file_type.value);
-    println!("║ Byte order:              {:?}             ║", macho_file.byte_order());
-    println!("║ First segment name:      {:<14}║",           macho_file.segments[0].name());
-    println!("╚════════════════════════════════════════╝");
-}
-```
-#### OUTPUT
-```plain
-╔════════════════════════════════════════╗
-║ File: tests/samples/machO-OSX-x86-ls   ║
-╠════════════════════════════════════════╣
-║ Number of load commands: 16            ║
-║ File type:               2             ║
-║ Byte order:              Little        ║
-║ First segment name:      __PAGEZERO    ║
-╚════════════════════════════════════════╝
+let macho = MachO::from_file("tests/samples/machO-OSX-x86-ls").unwrap();
+println!("load commands: {}", macho.header.ncmds.value);
+println!("byte order:    {:?}", macho.byte_order());
+println!("first segment: {}", macho.segments[0].name());
 ```
 
-### Modify PE Attributes
-HexSpell provides utilities to modify executables, such as changing the entry point of a PE file.
+Inserting a new PE section (for example, to inject code):
+
 ```rust
 use hexspell::pe::PE;
-
-fn main() {
-    // Attempt to parse a PE from file  
-    let mut pe = match PE::from_file("file.exe") {
-        Ok(file) => file,
-        Err(e) => {
-            eprintln!("Failed to parse PE file: {}", e);
-            return;
-        }
-    };
-
-    // Print old entry point
-    print!("Old entry point: {:X} | ", pe.optional_header.entry_point.value);
-
-    // Update the entry point to a new value, on the same pe.buffer
-    pe.optional_header.entry_point.update(&mut pe.buffer, 0x36D4u32).unwrap();
-
-    // Print new entry point
-    print!("New entry point: {:X}", pe.optional_header.entry_point.value);
-
-    // Try to write the modified PE file back to disk
-    if let Err(e) = pe.write_file("file_modified.exe") {
-        eprintln!("Failed to write modified PE file: {}", e);
-    }
-}
-```
-
-### Create new section and injecting a shellcode
-Adding code in a section with its own header
-```rust
-use hexspell::pe::{self, PE};
 use hexspell::pe::section::{NewSection, CODE, READ, EXECUTE};
 
-const SHELLCODE: [u8; 284] = [../*msfvenom shellcode*/..]
+let mut pe = PE::from_file("tests/samples/sample1.exe").unwrap();
 
-fn main(){
-    let mut pe = PE::from_file("tests/samples/sample1.exe").expect("[!] Error opening PE file");
+pe.insert_section(NewSection {
+    name: ".shell".to_string(),
+    data: vec![0x90; 64], // your payload here
+    characteristics: CODE | READ | EXECUTE,
+})
+.unwrap();
 
-    pe.insert_section(NewSection {
-        name: ".shell".to_string(),
-        data: SHELLCODE.to_vec(),
-        characteristics: CODE | READ | EXECUTE,
-    }).expect("[!] Error adding new section into PE");
+// Point the entry to the start of the new section.
+let new_va = pe.sections.last().unwrap().virtual_address.value;
+pe.optional_header
+    .entry_point
+    .update(&mut pe.buffer, new_va)
+    .unwrap();
 
-    pe.optional_header.entry_point.update(&mut pe.buffer, pe.sections.last().unwrap().virtual_address.value).unwrap();
-
-    pe.write_file("tests/out/modified.exe").expect("[!] Error writing new PE to disk");
-}
+pe.write_file("tests/out/modified.exe").unwrap();
 ```
 
-## Support or Contact
+More runnable examples and per-format walkthroughs live in the [user guide](docs/guide.md).
 
-Having trouble with HexSpell? Please [submit an issue](https://github.com/M3str3/HexSpell/issues) on GitHub.
+## Documentation
+
+- [User guide](docs/guide.md) — design principles, per-format examples, error handling.
+- [Layout accessors](docs/layout.md) — `field()` / `field_mut()` on ELF/Mach-O layout enums.
+- [Coverage matrix](docs/coverage.md) — what is modeled vs not, per format.
+- [Changelog](CHANGELOG.md) — notable changes per release.
+
+## Contributing
+
+Issues and pull requests are welcome — [open an issue](https://github.com/M3str3/HexSpell/issues) to
+report a bug or discuss a change. Contributors and agents should follow the conventions in
+[`AGENTS.md`](AGENTS.md) (tests required, `cargo fmt` + `cargo test` before finishing, no runtime
+dependencies).
 
 ## License
 
-HexSpell is distributed under the terms of the MIT License. See [LICENSE](LICENSE) for details.
+Distributed under the terms of the MIT License. See [LICENSE](LICENSE) for details.
