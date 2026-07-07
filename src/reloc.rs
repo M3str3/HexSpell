@@ -65,12 +65,12 @@ pub fn pe_base_relocs_at_rva(pe: &PE, rva: u32) -> Result<Vec<PeBaseRelocHit>, F
 }
 
 /// Lists every PE base relocation entry (eager directory already parsed on [`PE`]).
-pub fn pe_base_relocs(pe: &PE) -> Vec<PeBaseRelocHit> {
+pub fn pe_base_relocs(pe: &PE) -> Result<Vec<PeBaseRelocHit>, FileParseError> {
     let mut hits = Vec::new();
     for block in &pe.base_relocations {
         for entry in &block.entries {
             let rva = entry.rva(block.page_rva.value);
-            let file_offset = pe.rva_to_offset(rva).unwrap_or(0);
+            let file_offset = pe.rva_to_offset(rva)?;
             hits.push(PeBaseRelocHit {
                 page_rva: block.page_rva.value,
                 rva,
@@ -81,7 +81,7 @@ pub fn pe_base_relocs(pe: &PE) -> Vec<PeBaseRelocHit> {
             });
         }
     }
-    hits
+    Ok(hits)
 }
 
 /// Lists PE COFF section relocations at `rva` across all sections.

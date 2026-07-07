@@ -273,7 +273,11 @@ impl<'a> NumericFieldMut<'a> {
         order: ByteOrder,
     ) -> Result<(), FileParseError> {
         match self {
-            NumericFieldMut::U32(f) => f.update_with(buffer, new_value as u32, order),
+            NumericFieldMut::U32(f) => {
+                let value =
+                    u32::try_from(new_value).map_err(|_| FileParseError::ValueTooLarge)?;
+                f.update_with(buffer, value, order)
+            }
             NumericFieldMut::U64(f) => f.update_with(buffer, new_value, order),
         }
     }
@@ -461,6 +465,17 @@ mod tests {
             .update_with(&mut buf, 0x140000000, ByteOrder::Little)
             .unwrap();
         assert_eq!(buf, 0x140000000u64.to_le_bytes());
+    }
+
+    #[test]
+    fn numeric_field_mut_u32_rejects_values_above_u32_max() {
+        let mut buf = vec![0u8; 4];
+        let mut field = Field::new(0u32, 0, 4);
+        let mut accessor = NumericFieldMut::U32(&mut field);
+        let err = accessor
+            .update_with(&mut buf, u64::from(u32::MAX) + 1, ByteOrder::Little)
+            .unwrap_err();
+        assert!(matches!(err, FileParseError::ValueTooLarge));
     }
 
     #[test]

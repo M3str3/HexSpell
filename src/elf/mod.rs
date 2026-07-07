@@ -1150,7 +1150,7 @@ impl ELF {
             }
             let start = ph.p_offset();
             let end = start + ph.p_filesz();
-            if at > start && at <= end {
+            if at >= start && at <= end {
                 let new_filesz = ph.p_filesz() + len;
                 let new_memsz = ph.p_memsz() + len;
                 ph.p_filesz_mut()

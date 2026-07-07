@@ -1294,3 +1294,121 @@ fn test_pe_clr_and_cert_absent_on_sample() {
         pe::arch_data::ArchitectureDataKind::None
     );
 }
+
+/// sample1 has eight section headers ending at 0x2e0; shrink SizeOfHeaders so the next insert grows headers.
+const SAMPLE1_TIGHT_SIZE_OF_HEADERS: u32 = 0x2d0;
+
+fn sample1_with_tight_size_of_headers() -> pe::PE {
+    let mut pe = pe::PE::from_file("tests/samples/sample1.exe").expect("Failed to parse PE");
+    pe.optional_header
+        .size_of_headers
+        .update(&mut pe.buffer, SAMPLE1_TIGHT_SIZE_OF_HEADERS)
+        .expect("tighten SizeOfHeaders");
+    pe
+}
+
+/// insert_section must bump the new section raw pointer when header padding shifts existing sections.
+#[test]
+fn test_pe_insert_section_header_grow_preserves_section_data() {
+    let mut pe = sample1_with_tight_size_of_headers();
+
+    let text_marker = [0xDE, 0xAD, 0xBE, 0xEF];
+    let text_ptr = pe.sections[0].pointer_to_raw_data.value as usize;
+    pe.buffer[text_ptr..text_ptr + 4].copy_from_slice(&text_marker);
+
+    let last_index = pe.sections.len() - 1;
+    let last_ptr = pe.sections[last_index].pointer_to_raw_data.value;
+    let last_raw = pe.sections[last_index].size_of_raw_data.value;
+
+    let new_payload = vec![0xAA, 0xBB, 0xCC, 0xDD];
+    pe.insert_section(pe::section::NewSection {
+        name: ".grow".into(),
+        data: new_payload.clone(),
+        characteristics: pe::section::CODE | pe::section::READ,
+    })
+    .expect("insert_section with header growth");
+
+    assert!(
+        pe.optional_header.size_of_headers.value > SAMPLE1_TIGHT_SIZE_OF_HEADERS,
+        "insert should grow SizeOfHeaders"
+    );
+
+    let inserted = pe.sections.last().expect("new section");
+    assert!(
+        inserted.pointer_to_raw_data.value >= last_ptr + last_raw,
+        "new raw pointer must not overlap the previous section file range"
+    );
+    assert_eq!(pe.section_data(0).unwrap()[..4], text_marker);
+    assert_eq!(
+        &pe.section_data(pe.sections.len() - 1).unwrap()[..new_payload.len()],
+        new_payload.as_slice()
+    );
+}
+
+/// Authenticode overlay must stay addressable after header padding shifts file offsets.
+#[test]
+fn test_pe_insert_section_header_grow_rebases_security_directory() {
+    use pe::certificate::{
+        WIN_CERT_REVISION_2_0, WIN_CERT_TYPE_PKCS_SIGNED_DATA,
+    };
+    use pe::header::SECURITY;
+
+    let mut pe = sample1_with_tight_size_of_headers();
+
+    const CERT_PAYLOAD: &[u8] = b"PKCS7!!!";
+    let cert_entry_len = 16u32;
+    // Place the overlay after the new section's file-backed range once header padding shifts offsets.
+    const CERT_FILE_OFFSET: usize = 0x5a00;
+    if pe.buffer.len() < CERT_FILE_OFFSET {
+        pe.buffer.resize(CERT_FILE_OFFSET, 0);
+    }
+    let cert_off = CERT_FILE_OFFSET;
+    pe.buffer.resize(cert_off + cert_entry_len as usize, 0);
+    pe.buffer[cert_off..cert_off + 4].copy_from_slice(&cert_entry_len.to_le_bytes());
+    pe.buffer[cert_off + 4..cert_off + 6]
+        .copy_from_slice(&WIN_CERT_REVISION_2_0.to_le_bytes());
+    pe.buffer[cert_off + 6..cert_off + 8]
+        .copy_from_slice(&WIN_CERT_TYPE_PKCS_SIGNED_DATA.to_le_bytes());
+    pe.buffer[cert_off + 8..cert_off + 16].copy_from_slice(CERT_PAYLOAD);
+
+    pe.optional_header.data_directories[SECURITY]
+        .virtual_address
+        .update(&mut pe.buffer, cert_off as u32)
+        .expect("security offset");
+    pe.optional_header.data_directories[SECURITY]
+        .size
+        .update(&mut pe.buffer, cert_entry_len)
+        .expect("security size");
+
+    assert_eq!(
+        pe.certificates()
+            .expect("cert parse before insert")
+            .expect("cert table")
+            .certificates[0]
+            .data(&pe.buffer)
+            .unwrap(),
+        CERT_PAYLOAD
+    );
+
+    let old_cert_off = cert_off as u32;
+    pe.insert_section(pe::section::NewSection {
+        name: ".sig".into(),
+        data: vec![0x11, 0x22, 0x33, 0x44],
+        characteristics: pe::section::READ,
+    })
+    .expect("insert_section with cert overlay");
+
+    let header_growth =
+        pe.optional_header.size_of_headers.value - SAMPLE1_TIGHT_SIZE_OF_HEADERS;
+    assert!(header_growth > 0, "header padding should have occurred");
+
+    let security = &pe.optional_header.data_directories[SECURITY];
+    assert_eq!(
+        security.virtual_address.value,
+        old_cert_off + header_growth,
+        "SECURITY directory must be rebased by header padding bytes"
+    );
+
+    let table = pe.certificates().expect("cert parse after insert").expect("cert table");
+    assert_eq!(table.certificates[0].data(&pe.buffer).unwrap(), CERT_PAYLOAD);
+}

@@ -125,6 +125,31 @@ fn validation_overlap_detection_synthetic() {
 // --- Relocations ---
 
 #[test]
+fn reloc_pe_base_relocs_sample2() {
+    let pe = pe::PE::from_file("tests/samples/sample2.dll").expect("sample2");
+    let hits = reloc::pe_base_relocs(&pe).expect("base relocs");
+    assert!(!hits.is_empty());
+    assert!(hits.iter().all(|hit| hit.file_offset > 0));
+}
+
+#[test]
+fn reloc_pe_base_relocs_surfaces_mapping_error() {
+    use hexspell::field::Field;
+    use pe::relocation::{BaseRelocationBlock, BaseRelocationEntry};
+
+    let mut pe = pe::PE::from_file("tests/samples/sample2.dll").expect("sample2");
+    pe.base_relocations.push(BaseRelocationBlock {
+        page_rva: Field::new(0xFFFF_0000, 0, 4),
+        block_size: Field::new(12, 0, 4),
+        entries: vec![BaseRelocationEntry {
+            raw: Field::new(0x0000, 0, 2),
+        }],
+    });
+
+    assert!(reloc::pe_base_relocs(&pe).is_err());
+}
+
+#[test]
 fn reloc_pe_base_relocs_at_rva_sample2() {
     let pe = pe::PE::from_file("tests/samples/sample2.dll").expect("sample2");
     assert!(!pe.base_relocations.is_empty());

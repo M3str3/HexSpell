@@ -591,6 +591,54 @@ fn test_elf_insert_pt_load() {
     assert_eq!(elf.program_headers[1].p_filesz(), 3);
 }
 
+/// insert_bytes_at at a PT_LOAD p_offset extends p_filesz/p_memsz.
+#[test]
+fn test_elf_sync_pt_load_insert_at_segment_start() {
+    let mut buffer = elf64_base(1, 1, 0, 0x400, 0x800);
+    write_ph64(
+        &mut buffer,
+        0,
+        elf::program::PT_LOAD,
+        7,
+        0x200,
+        0x400000,
+        0x80,
+        0x80,
+    );
+    write_sh64(
+        &mut buffer,
+        0,
+        0,
+        elf::section::SHT_NULL,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+    );
+
+    let mut elf = elf::ELF::from_buffer(buffer).expect("parse ELF for pt_load sync");
+    elf.insert_section(elf::section::NewSection {
+        name: ".pad".to_string(),
+        data: vec![0x90, 0x90],
+        sh_type: elf::section::SHT_PROGBITS,
+        flags: elf::section::section_flags::ALLOC,
+        addr: Some(0x400000),
+        offset: Some(0x200),
+        link: None,
+        info: None,
+        addralign: Some(1),
+        entsize: None,
+    })
+    .expect("insert at PT_LOAD start");
+
+    assert_eq!(elf.program_headers[0].p_filesz(), 0x82);
+    assert_eq!(elf.program_headers[0].p_memsz(), 0x82);
+}
+
 /// insert_section appends section name to shstrtab and data to file end
 #[test]
 fn test_elf_insert_section() {
