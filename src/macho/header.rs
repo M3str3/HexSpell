@@ -1,66 +1,55 @@
 //! Core structures describing the Mach-O header.
-//!
-//! The header identifies CPU architecture, file type and endianness for a
-//! binary. Each field is wrapped in [`Field`](crate::field::Field) to ease
-//! patching and the module provides helper routines for detecting the
-//! correct [`Endianness`] when parsing additional data from the file.
 
 use crate::errors;
-use crate::field::Field;
+use crate::field::{ByteOrder, Field};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Endianness {
-    Little,
-    Big,
-}
-
+/// Mach-O header (`mach_header` / `mach_header_64`).
+///
+/// `magic` holds the normalized constant (`0xFEEDFACE`, etc.). For byte order, use
+/// [`crate::macho::MachO::byte_order`] or [`ByteOrder::from_macho_header_bytes`] on the raw buffer.
 #[derive(Debug)]
 pub struct MachHeader {
-    pub endianness: Endianness,
+    /// Magic number identifying word size and endianness.
     pub magic: Field<u32>,
     pub cpu_type: Field<u32>,
     pub cpu_subtype: Field<u32>,
     pub file_type: Field<u32>,
+    /// Number of load commands.
     pub ncmds: Field<u32>,
+    /// Total size of all load commands.
     pub sizeofcmds: Field<u32>,
     pub flags: Field<u32>,
-    pub reserved: Option<Field<u32>>, // Only Mach-O 64 bits
+    /// Present only in 64-bit headers (`reserved`).
+    pub reserved: Option<Field<u32>>,
 }
 
 impl MachHeader {
-    pub fn parse(buffer: &[u8], endianness: Endianness) -> Result<Self, errors::FileParseError> {
-        if buffer.len() < 28 {
+    /// Parses a Mach-O header at the start of `buffer`.
+    pub fn parse(
+        buffer: &[u8],
+        order: ByteOrder,
+        is_64bit: bool,
+    ) -> Result<Self, errors::FileParseError> {
+        let min_len = if is_64bit { 32 } else { 28 };
+        if buffer.len() < min_len {
             return Err(errors::FileParseError::BufferOverflow);
         }
 
-        let read_u32 = |offset: usize| -> Result<u32, errors::FileParseError> {
-            let bytes: [u8; 4] = buffer
-                .get(offset..offset + 4)
-                .ok_or(errors::FileParseError::BufferOverflow)?
-                .try_into()
-                .map_err(|_| errors::FileParseError::BufferOverflow)?;
-            Ok(match endianness {
-                Endianness::Little => u32::from_le_bytes(bytes),
-                Endianness::Big => u32::from_be_bytes(bytes),
-            })
-        };
+        let magic = Field::new(order.read_u32(buffer, 0)?, 0, 4);
+        let cpu_type = Field::new(order.read_u32(buffer, 4)?, 4, 4);
+        let cpu_subtype = Field::new(order.read_u32(buffer, 8)?, 8, 4);
+        let file_type = Field::new(order.read_u32(buffer, 12)?, 12, 4);
+        let ncmds = Field::new(order.read_u32(buffer, 16)?, 16, 4);
+        let sizeofcmds = Field::new(order.read_u32(buffer, 20)?, 20, 4);
+        let flags = Field::new(order.read_u32(buffer, 24)?, 24, 4);
 
-        let magic = Field::new(read_u32(0)?, 0, 4);
-        let cpu_type = Field::new(read_u32(4)?, 4, 4);
-        let cpu_subtype = Field::new(read_u32(8)?, 8, 4);
-        let file_type = Field::new(read_u32(12)?, 12, 4);
-        let ncmds = Field::new(read_u32(16)?, 16, 4);
-        let sizeofcmds = Field::new(read_u32(20)?, 20, 4);
-        let flags = Field::new(read_u32(24)?, 24, 4);
-
-        let reserved: Option<Field<u32>> = if buffer.len() >= 32 {
-            Some(Field::new(read_u32(28)?, 28, 4))
+        let reserved = if is_64bit {
+            Some(Field::new(order.read_u32(buffer, 28)?, 28, 4))
         } else {
             None
         };
 
         Ok(MachHeader {
-            endianness,
             magic,
             cpu_type,
             cpu_subtype,
