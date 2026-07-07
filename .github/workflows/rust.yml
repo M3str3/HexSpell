@@ -27,7 +27,8 @@ jobs:
     - name: Set up Rust
       uses: dtolnay/rust-toolchain@stable
       with:
-        toolchain: ${{ matrix.rust }}  
+        toolchain: ${{ matrix.rust }}
+        components: clippy
 
     - name: Cache Cargo registry
       uses: actions/cache@v3
