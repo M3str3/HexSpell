@@ -37,7 +37,7 @@ Or manually add this line to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-hexspell = "0.1.x"
+hexspell = "1.0"
 ```
 ## Examples of use
 
@@ -53,11 +53,12 @@ fn main() {
     println!("╔════════════════════════════════════════╗");
     println!("║ File: {:<33}║",                             file_name);
     println!("╠════════════════════════════════════════╣");
-    println!("║ PE Checksum:          0x{:08X}       ║",    pe.header.checksum.value);
-    println!("║ Architecture:         {:<17}║",             pe.header.architecture.value);
-    println!("║ PE Type:              {:?}             ║",  pe.header.pe_type);
-    println!("║ Number of sections:   0x{:08X}       ║",    pe.header.number_of_sections.value);
-    println!("║ Size of image:        0x{:08X}       ║",    pe.header.size_of_image.value);
+    println!("║ PE Checksum:          0x{:08X}       ║",    pe.optional_header.checksum.value);
+    println!("║ Architecture:         {:<17}║",             pe.architecture());
+    println!("║ PE Type:              {:?}             ║",  pe.optional_header.pe_type().unwrap());
+    println!("║ Number of sections:   0x{:08X}       ║",    pe.coff_header.number_of_sections.value);
+    println!("║ Optional magic:       0x{:04X}           ║",  pe.optional_header.magic.value);
+    println!("║ Size of image:        0x{:08X}       ║",    pe.optional_header.size_of_image.value);
     println!("╚════════════════════════════════════════╝");
 }
 ```
@@ -88,7 +89,8 @@ fn main() {
     println!("║ Entry point:          0x{:08X}       ║",    elf_file.header.entry.value);
     println!("║ Program headers:      {:<17}║",             elf_file.header.ph_num.value);
     println!("║ Section headers:      {:<17}║",             elf_file.header.sh_num.value);
-    println!("║ Endianness:           {:?}             ║",  elf_file.header.endianness);
+    println!("║ Byte order:           {:?}             ║",  elf_file.byte_order().unwrap());
+    println!("║ EI_DATA offset:       {:<17}║",             elf_file.header.ei_data.offset);
     println!("╚════════════════════════════════════════╝");
 }
 ```
@@ -100,7 +102,7 @@ fn main() {
 ║ Entry point:          0x00001060       ║
 ║ Program headers:      13               ║
 ║ Section headers:      31               ║
-║ Endianness:           Little           ║
+║ Byte order:           Little           ║
 ╚════════════════════════════════════════╝
 ```
 ### Parsing Mach-O Files
@@ -117,8 +119,8 @@ fn main() {
     println!("╠════════════════════════════════════════╣");
     println!("║ Number of load commands: {:<14}║",           macho_file.header.ncmds.value);
     println!("║ File type:               {:?}             ║", macho_file.header.file_type.value);
-    println!("║ Endianness:              {:?}             ║", macho_file.header.endianness);
-    println!("║ First segment name:      {:<14}║",           macho_file.segments[0].name);
+    println!("║ Byte order:              {:?}             ║", macho_file.byte_order());
+    println!("║ First segment name:      {:<14}║",           macho_file.segments[0].name());
     println!("╚════════════════════════════════════════╝");
 }
 ```
@@ -129,7 +131,7 @@ fn main() {
 ╠════════════════════════════════════════╣
 ║ Number of load commands: 16            ║
 ║ File type:               2             ║
-║ Endianness:              Little        ║
+║ Byte order:              Little        ║
 ║ First segment name:      __PAGEZERO    ║
 ╚════════════════════════════════════════╝
 ```
@@ -150,13 +152,13 @@ fn main() {
     };
 
     // Print old entry point
-    print!("Old entry point: {:X} | ", pe.header.entry_point.value);
+    print!("Old entry point: {:X} | ", pe.optional_header.entry_point.value);
 
     // Update the entry point to a new value, on the same pe.buffer
-    pe.header.entry_point.update(&mut pe.buffer, 0x36D4u32).unwrap();
+    pe.optional_header.entry_point.update(&mut pe.buffer, 0x36D4u32).unwrap();
 
     // Print new entry point
-    print!("New entry point: {:X}", pe.header.entry_point.value);
+    print!("New entry point: {:X}", pe.optional_header.entry_point.value);
 
     // Try to write the modified PE file back to disk
     if let Err(e) = pe.write_file("file_modified.exe") {
@@ -168,30 +170,22 @@ fn main() {
 ### Create new section and injecting a shellcode
 Adding code in a section with its own header
 ```rust
-use hexspell::pe::PE;
+use hexspell::pe::{self, PE};
+use hexspell::pe::section::{NewSection, CODE, READ, EXECUTE};
 
 const SHELLCODE: [u8; 284] = [../*msfvenom shellcode*/..]
 
 fn main(){
-    // Open PE from file
     let mut pe = PE::from_file("tests/samples/sample1.exe").expect("[!] Error opening PE file");
 
-    // Create new section header based on basic parameters
-    let new_section_header = pe.generate_section_header(
-        ".shell", // Name for the new section
-        shellcode.len() as u32, // The size of the data it has to store
-        section::Characteristics::Code.to_u32() // Basic characteristics for a shellcode
-            + section::Characteristics::Readable.to_u32()
-            + section::Characteristics::Executable.to_u32(),
-    ).expect("[!] Error generating new section header");
+    pe.insert_section(NewSection {
+        name: ".shell".to_string(),
+        data: SHELLCODE.to_vec(),
+        characteristics: CODE | READ | EXECUTE,
+    }).expect("[!] Error adding new section into PE");
 
-    // Add new section header and payload into PE
-    pe.add_section(new_section_header, shellcode.to_vec()).expect("[!] Error adding new section into PE");
+    pe.optional_header.entry_point.update(&mut pe.buffer, pe.sections.last().unwrap().virtual_address.value).unwrap();
 
-    // Optional: Update entry point to execute our payload instead of the original code
-    pe.header.entry_point.update(&mut pe.buffer, pe.sections.last().unwrap().virtual_address.value).unwrap();
-
-    // Write output to a new file
     pe.write_file("tests/out/modified.exe").expect("[!] Error writing new PE to disk");
 }
 ```
