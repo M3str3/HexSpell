@@ -591,11 +591,12 @@ impl PE {
 
     fn insert_section_impl(
         &mut self,
-        new_section: section::PeSection,
+        mut new_section: section::PeSection,
         shellcode: Vec<u8>,
     ) -> Result<(), FileParseError> {
         const SECTION_HEADER_SIZE: usize = 40;
 
+        let mut header_pad_diff = 0usize;
         if new_section.characteristics.offset + new_section.characteristics.size
             > self.optional_header.size_of_headers.value as usize
         {
@@ -615,6 +616,7 @@ impl PE {
                 let diff = alig_new_size_of_headers as usize - alig_old_size_of_headers as usize;
 
                 if diff > 0 {
+                    header_pad_diff = diff;
                     self.buffer.splice(
                         alig_old_size_of_headers as usize..alig_old_size_of_headers as usize,
                         std::iter::repeat_n(0, diff),
@@ -628,6 +630,12 @@ impl PE {
                     }
                 }
             }
+        }
+
+        if header_pad_diff > 0 {
+            let adjusted_ptr =
+                new_section.pointer_to_raw_data.value + header_pad_diff as u32;
+            new_section.pointer_to_raw_data.value = adjusted_ptr;
         }
 
         let raw_data_ptr = new_section.pointer_to_raw_data.value;
