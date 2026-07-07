@@ -4,6 +4,7 @@
 //! on the parent segment kind (4 bytes for `section`, 8 for `section_64`).
 
 use super::load_command::{LoadCommand, LC_SEGMENT, LC_SEGMENT_64};
+use super::relocation::RelocationEntry;
 use crate::errors::FileParseError;
 use crate::field::{ByteOrder, Field, FixedBytes, NumericFieldMut};
 
@@ -130,6 +131,32 @@ impl SectionEntry {
         }
     }
 
+    /// Parses relocation entries at this section's `reloff`.
+    pub fn relocations(
+        &self,
+        buffer: &[u8],
+        order: ByteOrder,
+    ) -> Result<Vec<RelocationEntry>, FileParseError> {
+        let count = self.nreloc() as usize;
+        if count == 0 {
+            return Ok(Vec::new());
+        }
+        RelocationEntry::parse_table(buffer, self.reloff() as usize, count, order)
+    }
+
+    /// Absolute file offset of this section record.
+    pub fn record_offset(&self) -> usize {
+        match self {
+            SectionEntry::Section32(f) => f.sectname.offset,
+            SectionEntry::Section64(f) => f.sectname.offset,
+        }
+    }
+
+    /// `true` when this is a 64-bit `section_64` record.
+    pub fn is_64(&self) -> bool {
+        matches!(self, SectionEntry::Section64(_))
+    }
+
     fn parse_one(
         buffer: &[u8],
         offset: usize,
@@ -201,4 +228,20 @@ impl SectionEntry {
 
         Ok(sections)
     }
+}
+
+/// Input for [`crate::macho::MachO::add_section`].
+pub struct NewSection {
+    /// Section name (truncated to 16 bytes on disk).
+    pub name: String,
+    /// Virtual address (`addr`).
+    pub addr: u64,
+    /// Section size in bytes (`size`).
+    pub size: u64,
+    /// File offset of section data (`offset`); `0` for zero-fill.
+    pub offset: u32,
+    /// Section alignment as a power of two (`align`).
+    pub align: u32,
+    /// Section flags (`flags`).
+    pub flags: u32,
 }

@@ -55,6 +55,16 @@ pub const LC_VERSION_MIN_MACOSX: u32 = 0x24;
 pub const LC_VERSION_MIN_IPHONEOS: u32 = 0x25;
 /// `LC_BUILD_VERSION` — build/platform version.
 pub const LC_BUILD_VERSION: u32 = 0x32;
+/// `LC_LINKER_OPTION` — linker command-line options embedded in the image.
+pub const LC_LINKER_OPTION: u32 = 0x2d;
+/// `LC_LINKER_OPTIMIZATION_HINT` — linker optimization hints.
+pub const LC_LINKER_OPTIMIZATION_HINT: u32 = 0x2e;
+/// `LC_VERSION_MIN_TVOS` — minimum tvOS version.
+pub const LC_VERSION_MIN_TVOS: u32 = 0x2f;
+/// `LC_VERSION_MIN_WATCHOS` — minimum watchOS version.
+pub const LC_VERSION_MIN_WATCHOS: u32 = 0x30;
+/// `LC_FILESET_ENTRY` — fileset entry (iOS app extensions).
+pub const LC_FILESET_ENTRY: u32 = 0x35;
 
 /// Bit set on load command values whose payload dyld must understand to load the image.
 pub const LC_REQ_DYLD: u32 = 0x80000000;
@@ -162,6 +172,88 @@ pub struct LinkeditDataCommand {
     pub datasize: Field<u32>,
 }
 
+/// `build_version_command` (`LC_BUILD_VERSION`).
+#[derive(Debug)]
+pub struct BuildVersionCommand {
+    /// Target platform (`PLATFORM_*`).
+    pub platform: Field<u32>,
+    /// Minimum OS version (packed `X.Y.Z`).
+    pub minos: Field<u32>,
+    /// SDK version (packed `X.Y.Z`).
+    pub sdk: Field<u32>,
+    /// Number of `build_tool_version` records following this command.
+    pub ntools: Field<u32>,
+}
+
+/// One `build_tool_version` record nested in [`BuildVersionCommand`].
+#[derive(Debug)]
+pub struct BuildToolVersion {
+    /// Tool identifier (`TOOL_*`).
+    pub tool: Field<u32>,
+    /// Tool version (packed `X.Y.Z`).
+    pub version: Field<u32>,
+}
+
+/// `source_version_command` (`LC_SOURCE_VERSION`).
+#[derive(Debug)]
+pub struct SourceVersionCommand {
+    /// Source version (packed components in 64 bits).
+    pub version: Field<u64>,
+}
+
+/// `version_min_command` (`LC_VERSION_MIN_*`).
+#[derive(Debug)]
+pub struct VersionMinCommand {
+    /// Minimum OS version (packed `X.Y.Z`).
+    pub version: Field<u32>,
+    /// SDK version (packed `X.Y.Z`).
+    pub sdk: Field<u32>,
+}
+
+/// `thread_command` (`LC_UNIXTHREAD`) — legacy entry point via CPU register state.
+#[derive(Debug)]
+pub struct UnixThreadCommand {
+    /// CPU-specific thread-state flavor.
+    pub flavor: Field<u32>,
+    /// Number of `uint32_t` words in the thread state.
+    pub count: Field<u32>,
+    /// Absolute file offset of the thread-state blob.
+    pub state_offset: usize,
+    /// Raw thread-state bytes (`count * 4`).
+    pub state: Vec<u8>,
+}
+
+/// `linker_option_command` (`LC_LINKER_OPTION`).
+#[derive(Debug)]
+pub struct LinkerOptionCommand {
+    /// Number of NUL-terminated option strings.
+    pub count: Field<u32>,
+    /// Resolved option strings.
+    pub options: Vec<String>,
+}
+
+/// `linker_optimization_hint_command` (`LC_LINKER_OPTIMIZATION_HINT`).
+#[derive(Debug)]
+pub struct LinkerOptimizationHintCommand {
+    /// Number of hints.
+    pub count: Field<u32>,
+    /// Total size in bytes of the hint records.
+    pub size: Field<u32>,
+}
+
+/// `fileset_entry_command` (`LC_FILESET_ENTRY`).
+#[derive(Debug)]
+pub struct FilesetEntryCommand {
+    /// Virtual address of the entry Mach-O.
+    pub vmaddr: Field<u64>,
+    /// File offset of the entry Mach-O.
+    pub fileoff: Field<u64>,
+    /// Offset of the entry identifier string relative to the command start.
+    pub entry_id_offset: Field<u32>,
+    /// Resolved entry identifier (e.g. `com.apple.watchkit`).
+    pub entry_id: String,
+}
+
 /// Typed view of a load command payload for the kinds HexSpell models.
 #[derive(Debug)]
 pub enum TypedCommand {
@@ -174,6 +266,13 @@ pub enum TypedCommand {
     Rpath(StrCommand),
     Uuid(UuidCommand),
     LinkeditData(LinkeditDataCommand),
+    BuildVersion(BuildVersionCommand),
+    SourceVersion(SourceVersionCommand),
+    VersionMin(VersionMinCommand),
+    UnixThread(UnixThreadCommand),
+    LinkerOption(LinkerOptionCommand),
+    LinkerOptimizationHint(LinkerOptimizationHintCommand),
+    FilesetEntry(FilesetEntryCommand),
 }
 
 impl LoadCommand {
@@ -269,6 +368,76 @@ impl LoadCommand {
                     datasize: Field::new(read_u32(12)?, off + 12, 4),
                 })
             }
+            LC_BUILD_VERSION => TypedCommand::BuildVersion(BuildVersionCommand {
+                platform: Field::new(read_u32(8)?, off + 8, 4),
+                minos: Field::new(read_u32(12)?, off + 12, 4),
+                sdk: Field::new(read_u32(16)?, off + 16, 4),
+                ntools: Field::new(read_u32(20)?, off + 20, 4),
+            }),
+            LC_SOURCE_VERSION => TypedCommand::SourceVersion(SourceVersionCommand {
+                version: Field::new(read_u64(8)?, off + 8, 8),
+            }),
+            LC_VERSION_MIN_MACOSX
+            | LC_VERSION_MIN_IPHONEOS
+            | LC_VERSION_MIN_TVOS
+            | LC_VERSION_MIN_WATCHOS => TypedCommand::VersionMin(VersionMinCommand {
+                version: Field::new(read_u32(8)?, off + 8, 4),
+                sdk: Field::new(read_u32(12)?, off + 12, 4),
+            }),
+            LC_UNIXTHREAD => {
+                let flavor = read_u32(8)?;
+                let count = read_u32(12)?;
+                let state_off = off + 16;
+                let state_len = count as usize * 4;
+                let state = buffer
+                    .get(state_off..state_off + state_len)
+                    .ok_or(errors::FileParseError::BufferOverflow)?
+                    .to_vec();
+                TypedCommand::UnixThread(UnixThreadCommand {
+                    flavor: Field::new(flavor, off + 8, 4),
+                    count: Field::new(count, off + 12, 4),
+                    state_offset: state_off,
+                    state,
+                })
+            }
+            LC_LINKER_OPTION => {
+                let count = read_u32(8)?;
+                let mut options = Vec::new();
+                let mut str_pos = off + 12;
+                let cmd_end = off + size;
+                for _ in 0..count {
+                    if str_pos >= cmd_end {
+                        return Err(errors::FileParseError::BufferOverflow);
+                    }
+                    let slice = buffer
+                        .get(str_pos..cmd_end)
+                        .ok_or(errors::FileParseError::BufferOverflow)?;
+                    let stop = slice.iter().position(|&b| b == 0).unwrap_or(slice.len());
+                    let opt = String::from_utf8_lossy(&slice[..stop]).into_owned();
+                    str_pos += stop + 1;
+                    options.push(opt);
+                }
+                TypedCommand::LinkerOption(LinkerOptionCommand {
+                    count: Field::new(count, off + 8, 4),
+                    options,
+                })
+            }
+            LC_LINKER_OPTIMIZATION_HINT => {
+                TypedCommand::LinkerOptimizationHint(LinkerOptimizationHintCommand {
+                    count: Field::new(read_u32(8)?, off + 8, 4),
+                    size: Field::new(read_u32(12)?, off + 12, 4),
+                })
+            }
+            LC_FILESET_ENTRY => {
+                let entry_id_off = read_u32(24)?;
+                let entry_id = read_lc_string(buffer, off, size, entry_id_off as usize)?;
+                TypedCommand::FilesetEntry(FilesetEntryCommand {
+                    vmaddr: Field::new(read_u64(8)?, off + 8, 8),
+                    fileoff: Field::new(read_u64(16)?, off + 16, 8),
+                    entry_id_offset: Field::new(entry_id_off, off + 24, 4),
+                    entry_id,
+                })
+            }
             _ => return Ok(None),
         };
 
@@ -309,6 +478,30 @@ impl LoadCommand {
 
         Ok(commands)
     }
+}
+
+/// Parses `ntools` [`BuildToolVersion`] records following a [`BuildVersionCommand`].
+pub fn parse_build_tools(
+    buffer: &[u8],
+    cmd: &BuildVersionCommand,
+    cmd_offset: usize,
+    order: ByteOrder,
+) -> Result<Vec<BuildToolVersion>, errors::FileParseError> {
+    let ntools = cmd.ntools.value as usize;
+    let mut out = Vec::with_capacity(ntools);
+    let mut off = cmd_offset + 24;
+    for _ in 0..ntools {
+        if buffer.len() < off + 8 {
+            return Err(errors::FileParseError::BufferOverflow);
+        }
+        let order = order;
+        out.push(BuildToolVersion {
+            tool: Field::new(order.read_u32(buffer, off)?, off, 4),
+            version: Field::new(order.read_u32(buffer, off + 4)?, off + 4, 4),
+        });
+        off += 8;
+    }
+    Ok(out)
 }
 
 /// Reads a NUL-terminated (or command-end-terminated) string embedded in a load command.
