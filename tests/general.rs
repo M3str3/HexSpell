@@ -3,11 +3,11 @@
 /// Verifies common functionality such as `Field` updates and error
 /// propagation that apply across binary formats.
 use hexspell::errors::FileParseError;
-use hexspell::field::Field;
+use hexspell::field::{ByteOrder, Field, FixedBytes};
 use hexspell::pe;
 
 // Support function
-fn load_section_name_field() -> (Vec<u8>, Field<String>) {
+fn load_section_name_field() -> (Vec<u8>, Field<FixedBytes<8>>) {
     let pe = pe::PE::from_file("tests/samples/sample1.exe").expect("Cannot open the PE");
     let buffer_clone = pe.buffer.clone();
     let field = pe.sections[0].name.clone();
@@ -58,13 +58,51 @@ fn test_field_u64_value_bounds() {
 }
 
 #[test]
+fn test_field_u32_update_big_endian() {
+    let mut buffer = [0u8; 4];
+    let mut field = Field::new(0u32, 0, 4);
+    field
+        .update_with(&mut buffer, 0x12345678, ByteOrder::Big)
+        .unwrap();
+    assert_eq!(buffer, [0x12, 0x34, 0x56, 0x78]);
+}
+
+#[test]
+fn test_field_u64_update_big_endian_truncated() {
+    let mut buffer = [0u8; 4];
+    let mut field = Field::new(0u64, 0, 4);
+    field
+        .update_with(&mut buffer, 0xAABBCCDDu64, ByteOrder::Big)
+        .unwrap();
+    assert_eq!(buffer, [0xAA, 0xBB, 0xCC, 0xDD]);
+}
+
+#[test]
+fn test_overflow_error_value_unchanged() {
+    let (mut buffer, mut name_field) = load_section_name_field();
+    let original_value = name_field.value;
+    let size = name_field.size;
+    let overflow = "A".repeat(size + 1);
+
+    let err = name_field
+        .update_str(&mut buffer, overflow.as_str())
+        .expect_err("Expected a BufferOverflow error");
+
+    assert!(matches!(err, FileParseError::BufferOverflow));
+    assert_eq!(
+        name_field.value, original_value,
+        "Field value must not change on error"
+    );
+}
+
+#[test]
 fn test_padding_shorter() {
     let (mut buffer, mut name_field) = load_section_name_field();
-    let new_name = ".t".to_string();
+    let new_name = ".t";
     let offset = name_field.offset;
     let size = name_field.size;
 
-    name_field.update(&mut buffer, new_name.as_str()).unwrap();
+    name_field.update_str(&mut buffer, new_name).unwrap();
 
     assert_eq!(
         &buffer[offset..offset + new_name.len()],
@@ -86,7 +124,7 @@ fn test_exact_fit() {
     let exact = "X".repeat(size);
     let offset = name_field.offset;
 
-    name_field.update(&mut buffer, exact.as_str()).unwrap();
+    name_field.update_str(&mut buffer, exact.as_str()).unwrap();
 
     assert_eq!(
         &buffer[offset..offset + size],
@@ -102,7 +140,7 @@ fn test_overflow_error() {
     let overflow = "A".repeat(size + 1);
 
     let err = name_field
-        .update(&mut buffer, overflow.as_str())
+        .update_str(&mut buffer, overflow.as_str())
         .expect_err("Expected a BufferOverflow error");
 
     assert!(
@@ -115,7 +153,7 @@ fn test_overflow_error() {
 #[test]
 fn test_utf8_multibyte() {
     let (mut buffer, mut name_field) = load_section_name_field();
-    let new_name = "ñáç".to_string();
+    let new_name = "ñáç";
     let bytes = new_name.as_bytes();
     let size = name_field.size;
     let offset = name_field.offset;
@@ -127,7 +165,7 @@ fn test_utf8_multibyte() {
         size
     );
 
-    name_field.update(&mut buffer, new_name.as_str()).unwrap();
+    name_field.update_str(&mut buffer, new_name).unwrap();
 
     assert_eq!(
         &buffer[offset..offset + bytes.len()],

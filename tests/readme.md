@@ -31,6 +31,48 @@ Here is the structure of the `tests` directory:
 
 - **source/**: Contains the source code (C/C++) of the binaries found in the `samples/` directory.
 
+## Test binaries
+
+Every file under `samples/` must have a documented origin. Do not commit binaries without a corresponding source file (or external provenance note) and rebuild instructions.
+
+| Sample | Source | Format | Toolchain | Used by |
+|--------|--------|--------|-----------|---------|
+| `sample1.exe` | `source/sample1.c++` | PE32 (x86) | `g++` (MinGW or native Windows) | `tests/pe.rs`, `tests/general.rs`, README examples |
+| `sample2.dll` | `source/sample2.c` | PE32 (x86) DLL | `gcc` (MinGW) | `tests/pe.rs` (`tests.toml`) |
+| `sample64.exe` | `source/sample4.c` | PE32+ (x86_64) | `x86_64-w64-mingw32-gcc` | `tests/pe.rs` (`test_pe64_parse`) |
+| `linux` | `source/sample3.c` | ELF64 (Linux x86_64) | `gcc` | `tests/elf.rs`, README examples |
+| `machO-OSX-x86-ls` | `source/machO-OSX-x86-ls` | Mach-O 32-bit (i386) | macOS system binary (`/bin/ls`, copied for tests) | `tests/macho.rs`, README examples |
+
+### Rebuilding `sample64.exe`
+
+Minimal PE64 executable (empty `main` returning 0). From the repository root:
+
+```sh
+x86_64-w64-mingw32-gcc tests/source/sample4.c -o tests/samples/sample64.exe
+```
+
+On Debian/Ubuntu/WSL, install the cross-compiler if needed:
+
+```sh
+sudo apt install gcc-mingw-w64-x86-64
+```
+
+After rebuilding, run `cargo test test_pe64_parse` to confirm expected header values (`image_base = 0x140000000`, `base_of_data` absent, etc.). Note: `generator.py` currently reads PE32 fields only; `sample64` is validated by the dedicated Rust test, not `tests.toml`.
+
+### Rebuilding other samples (quick reference)
+
+```sh
+# PE32 EXE
+g++ tests/source/sample1.c++ -s -o tests/samples/sample1.exe
+
+# PE32 DLL
+gcc -c tests/source/sample2.c -s -o /tmp/sample2.o
+gcc -s -shared -o tests/samples/sample2.dll /tmp/sample2.o
+
+# ELF64
+gcc tests/source/sample3.c -o tests/samples/linux
+```
+
 ## Generating the `tests.toml` File
 
 The `tests.toml` file defines the expected outcomes for each binary parsed by the library. From the `tests` directory, generate a preliminary file with:
@@ -54,7 +96,7 @@ cargo test
 This command will execute all the tests defined in `pe.rs`, `elf.rs`, and `macho.rs`, comparing the parsed values against those defined in `tests.toml`.
 
 ## Adding New Tests
-1. Add New Binaries: Place the new binary files in the samples/ directory.
+1. Add New Binaries: Place the new binary files in the `samples/` directory and add the source (or provenance) under `source/`. Document the build command in `tests/readme.md` and in a comment at the top of the source file.
 
 2. Generate or Update tests.toml: Run generator.py to generate the corresponding entries in tests.toml.
 
