@@ -1119,6 +1119,16 @@ fn test_elf_rela_apply_and_structural_helpers() {
     assert_eq!(&elf.buffer[0x210..0x218], &0x1005u64.to_le_bytes());
     assert_eq!(elf.gnu_relro_segments().len(), 1);
 
+    let out_of_bounds = elf::relocation::RelocationEntry::Rel64(elf::relocation::Rel64Fields {
+        r_offset: hexspell::field::Field::new(0x1000, 0, 8),
+        r_info: hexspell::field::Field::new(0, 8, 8),
+        r_addend: Some(hexspell::field::Field::new(0, 16, 8)),
+    });
+    assert!(matches!(
+        elf.apply_rela_address(&out_of_bounds, 0),
+        Err(FileParseError::BufferOverflow)
+    ));
+
     elf.insert_section(elf::section::NewSection {
         name: ".x".to_string(),
         data: vec![1, 2, 3, 4],

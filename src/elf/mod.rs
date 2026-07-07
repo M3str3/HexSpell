@@ -552,6 +552,16 @@ impl ELF {
             .va_to_file_offset(relocation.r_offset())
             .unwrap_or_else(|| relocation.r_offset()) as usize;
         let order = self.byte_order()?;
+        let pointer_width = match self.header.class()? {
+            ElfClass::Elf32 => 4,
+            ElfClass::Elf64 => 8,
+        };
+        let write_end = file_offset
+            .checked_add(pointer_width)
+            .ok_or(errors::FileParseError::BufferOverflow)?;
+        if write_end > self.buffer.len() {
+            return Err(errors::FileParseError::BufferOverflow);
+        }
         match self.header.class()? {
             ElfClass::Elf32 => {
                 if value > u32::MAX as i128 {
