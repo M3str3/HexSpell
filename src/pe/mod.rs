@@ -617,8 +617,9 @@ impl PE {
 
                 if diff > 0 {
                     header_pad_diff = diff;
+                    let header_splice_at = alig_old_size_of_headers as usize;
                     self.buffer.splice(
-                        alig_old_size_of_headers as usize..alig_old_size_of_headers as usize,
+                        header_splice_at..header_splice_at,
                         std::iter::repeat_n(0, diff),
                     );
 
@@ -627,6 +628,19 @@ impl PE {
                             &mut self.buffer,
                             section.pointer_to_raw_data.value + diff as u32,
                         )?;
+                    }
+
+                    if self.optional_header.has_data_directory(header::SECURITY) {
+                        let security =
+                            &mut self.optional_header.data_directories[header::SECURITY];
+                        if security.virtual_address.value != 0
+                            && security.virtual_address.value as usize >= header_splice_at
+                        {
+                            security.virtual_address.update(
+                                &mut self.buffer,
+                                security.virtual_address.value + diff as u32,
+                            )?;
+                        }
                     }
                 }
             }
