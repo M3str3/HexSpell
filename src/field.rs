@@ -274,8 +274,7 @@ impl<'a> NumericFieldMut<'a> {
     ) -> Result<(), FileParseError> {
         match self {
             NumericFieldMut::U32(f) => {
-                let value =
-                    u32::try_from(new_value).map_err(|_| FileParseError::ValueTooLarge)?;
+                let value = u32::try_from(new_value).map_err(|_| FileParseError::ValueTooLarge)?;
                 f.update_with(buffer, value, order)
             }
             NumericFieldMut::U64(f) => f.update_with(buffer, new_value, order),

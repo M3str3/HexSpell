@@ -631,8 +631,7 @@ impl PE {
                     }
 
                     if self.optional_header.has_data_directory(header::SECURITY) {
-                        let security =
-                            &mut self.optional_header.data_directories[header::SECURITY];
+                        let security = &mut self.optional_header.data_directories[header::SECURITY];
                         if security.virtual_address.value != 0
                             && security.virtual_address.value as usize >= header_splice_at
                         {
@@ -647,8 +646,7 @@ impl PE {
         }
 
         if header_pad_diff > 0 {
-            let adjusted_ptr =
-                new_section.pointer_to_raw_data.value + header_pad_diff as u32;
+            let adjusted_ptr = new_section.pointer_to_raw_data.value + header_pad_diff as u32;
             new_section.pointer_to_raw_data.value = adjusted_ptr;
         }
 

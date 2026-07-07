@@ -1348,9 +1348,7 @@ fn test_pe_insert_section_header_grow_preserves_section_data() {
 /// Authenticode overlay must stay addressable after header padding shifts file offsets.
 #[test]
 fn test_pe_insert_section_header_grow_rebases_security_directory() {
-    use pe::certificate::{
-        WIN_CERT_REVISION_2_0, WIN_CERT_TYPE_PKCS_SIGNED_DATA,
-    };
+    use pe::certificate::{WIN_CERT_REVISION_2_0, WIN_CERT_TYPE_PKCS_SIGNED_DATA};
     use pe::header::SECURITY;
 
     let mut pe = sample1_with_tight_size_of_headers();
@@ -1365,8 +1363,7 @@ fn test_pe_insert_section_header_grow_rebases_security_directory() {
     let cert_off = CERT_FILE_OFFSET;
     pe.buffer.resize(cert_off + cert_entry_len as usize, 0);
     pe.buffer[cert_off..cert_off + 4].copy_from_slice(&cert_entry_len.to_le_bytes());
-    pe.buffer[cert_off + 4..cert_off + 6]
-        .copy_from_slice(&WIN_CERT_REVISION_2_0.to_le_bytes());
+    pe.buffer[cert_off + 4..cert_off + 6].copy_from_slice(&WIN_CERT_REVISION_2_0.to_le_bytes());
     pe.buffer[cert_off + 6..cert_off + 8]
         .copy_from_slice(&WIN_CERT_TYPE_PKCS_SIGNED_DATA.to_le_bytes());
     pe.buffer[cert_off + 8..cert_off + 16].copy_from_slice(CERT_PAYLOAD);
@@ -1398,8 +1395,7 @@ fn test_pe_insert_section_header_grow_rebases_security_directory() {
     })
     .expect("insert_section with cert overlay");
 
-    let header_growth =
-        pe.optional_header.size_of_headers.value - SAMPLE1_TIGHT_SIZE_OF_HEADERS;
+    let header_growth = pe.optional_header.size_of_headers.value - SAMPLE1_TIGHT_SIZE_OF_HEADERS;
     assert!(header_growth > 0, "header padding should have occurred");
 
     let security = &pe.optional_header.data_directories[SECURITY];
@@ -1409,6 +1405,12 @@ fn test_pe_insert_section_header_grow_rebases_security_directory() {
         "SECURITY directory must be rebased by header padding bytes"
     );
 
-    let table = pe.certificates().expect("cert parse after insert").expect("cert table");
-    assert_eq!(table.certificates[0].data(&pe.buffer).unwrap(), CERT_PAYLOAD);
+    let table = pe
+        .certificates()
+        .expect("cert parse after insert")
+        .expect("cert table");
+    assert_eq!(
+        table.certificates[0].data(&pe.buffer).unwrap(),
+        CERT_PAYLOAD
+    );
 }
