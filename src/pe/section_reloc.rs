@@ -11,6 +11,7 @@ pub const IMAGE_REL_I386_DIR32: u16 = 0x0006;
 pub const IMAGE_REL_AMD64_ADDR64: u16 = 0x0001;
 
 /// `IMAGE_RELOCATION` — 10 bytes in PE images.
+#[derive(Debug, Clone)]
 pub struct SectionRelocation {
     /// RVA of the relocation (`VirtualAddress`).
     pub virtual_address: Field<u32>,

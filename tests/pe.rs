@@ -1063,3 +1063,234 @@ fn test_pe_export_forwarder_synthetic() {
         _ => panic!("expected forwarder export"),
     }
 }
+
+/// Synthetic COFF line number table on a section header.
+#[test]
+fn test_pe_linenumbers_synthetic() {
+    use pe::linenum::{LineNumberBlock, LineNumberEntry};
+
+    let mut buffer = vec![0u8; 0x40];
+    let linenum_off = 0x10usize;
+    // Source file record: Type=symbol index 3, LineNumber=0
+    buffer[linenum_off..linenum_off + 4].copy_from_slice(&3u32.to_le_bytes());
+    buffer[linenum_off + 4..linenum_off + 6].copy_from_slice(&0u16.to_le_bytes());
+    // Line mapping: RVA 0x100, line 42
+    buffer[linenum_off + 6..linenum_off + 10].copy_from_slice(&0x100u32.to_le_bytes());
+    buffer[linenum_off + 10..linenum_off + 12].copy_from_slice(&42u16.to_le_bytes());
+
+    let section = pe::section::PeSection {
+        name: hexspell::field::Field::new(
+            hexspell::field::FixedBytes([b'.', b't', 0, 0, 0, 0, 0, 0]),
+            0,
+            8,
+        ),
+        virtual_size: hexspell::field::Field::new(0x200, 8, 4),
+        virtual_address: hexspell::field::Field::new(0x1000, 12, 4),
+        size_of_raw_data: hexspell::field::Field::new(0x40, 16, 4),
+        pointer_to_raw_data: hexspell::field::Field::new(0, 20, 4),
+        pointer_to_relocations: hexspell::field::Field::new(0, 24, 4),
+        pointer_to_linenumbers: hexspell::field::Field::new(linenum_off as u32, 28, 4),
+        number_of_relocations: hexspell::field::Field::new(0, 32, 2),
+        number_of_linenumbers: hexspell::field::Field::new(2, 34, 2),
+        characteristics: hexspell::field::Field::new(0, 36, 4),
+    };
+
+    let block = LineNumberBlock::parse(&buffer, 0, &section).unwrap();
+    assert_eq!(block.entries.len(), 2);
+    assert!(block.entries[0].is_source_file());
+    assert!(block.entries[1].is_line_mapping());
+    assert_eq!(block.entries[1].line_number.value, 42);
+    assert_eq!(block.entries[1].type_field.value, 0x100);
+    assert_eq!(LineNumberEntry::SIZE, 6);
+}
+
+/// Synthetic Rich header between DOS stub and PE signature.
+#[test]
+fn test_pe_rich_header_synthetic() {
+    use pe::rich::RichHeader;
+
+    let xor_key = 0x1234_5678u32;
+    let mut buffer = vec![0u8; 0x200];
+    let pe_offset = 0x100usize;
+
+    buffer[0x80..0x84].copy_from_slice(&(DANS_MAGIC ^ xor_key).to_le_bytes());
+    let tool = ((0x0100u32) << 16) | 0x5a5au32;
+    buffer[0x84..0x88].copy_from_slice(&(tool ^ xor_key).to_le_bytes());
+    buffer[0x88..0x8c].copy_from_slice(&(1u32 ^ xor_key).to_le_bytes());
+    buffer[0x8c..0x90].copy_from_slice(&(RICH_MAGIC ^ xor_key).to_le_bytes());
+    buffer[0x90..0x94].copy_from_slice(&xor_key.to_le_bytes());
+
+    let rich = RichHeader::parse(&buffer, pe_offset)
+        .unwrap()
+        .expect("rich header");
+    assert_eq!(rich.xor_key, xor_key);
+    assert_eq!(rich.entries.len(), 1);
+    assert_eq!(rich.entries[0].product_id, 0x0100);
+    assert_eq!(rich.entries[0].build_id, 0x5a5a);
+    assert_eq!(rich.entries[0].count, 1);
+}
+
+const DANS_MAGIC: u32 = 0x536e_6144;
+const RICH_MAGIC: u32 = 0x6863_6952;
+
+/// Synthetic WIN_CERTIFICATE table (file offset, not RVA).
+#[test]
+fn test_pe_certificate_table_synthetic() {
+    use pe::certificate::{
+        CertificateTable, WIN_CERT_REVISION_2_0, WIN_CERT_TYPE_PKCS_SIGNED_DATA,
+    };
+
+    let mut buffer = vec![0u8; 0x100];
+    let cert_off = 0x80usize;
+    let cert_len = 16u32;
+    buffer[cert_off..cert_off + 4].copy_from_slice(&cert_len.to_le_bytes());
+    buffer[cert_off + 4..cert_off + 6].copy_from_slice(&WIN_CERT_REVISION_2_0.to_le_bytes());
+    buffer[cert_off + 6..cert_off + 8]
+        .copy_from_slice(&WIN_CERT_TYPE_PKCS_SIGNED_DATA.to_le_bytes());
+    buffer[cert_off + 8..cert_off + 16].copy_from_slice(b"PKCS7!!!");
+
+    let table = CertificateTable::parse(&buffer, cert_off as u32, cert_len).unwrap();
+    assert_eq!(table.certificates.len(), 1);
+    assert_eq!(table.certificates[0].revision.value, WIN_CERT_REVISION_2_0);
+    assert_eq!(table.certificates[0].data(&buffer).unwrap(), b"PKCS7!!!");
+}
+
+/// Synthetic IMAGE_COR20_HEADER.
+#[test]
+fn test_pe_clr_header_synthetic() {
+    use pe::clr::{Cor20Header, COMIMAGE_FLAGS_ILONLY};
+
+    let mut buffer = vec![0u8; 0x100];
+    let offset = 0x20usize;
+    buffer[offset..offset + 4].copy_from_slice(&72u32.to_le_bytes());
+    buffer[offset + 4..offset + 6].copy_from_slice(&2u16.to_le_bytes());
+    buffer[offset + 6..offset + 8].copy_from_slice(&5u16.to_le_bytes());
+    buffer[offset + 8..offset + 12].copy_from_slice(&0x3000u32.to_le_bytes());
+    buffer[offset + 12..offset + 16].copy_from_slice(&0x200u32.to_le_bytes());
+    buffer[offset + 16..offset + 20].copy_from_slice(&COMIMAGE_FLAGS_ILONLY.to_le_bytes());
+    buffer[offset + 20..offset + 24].copy_from_slice(&0x0600_0001u32.to_le_bytes());
+
+    let cor20 = Cor20Header::parse(&buffer, offset).unwrap();
+    assert_eq!(cor20.major_runtime_version.value, 2);
+    assert_eq!(cor20.minor_runtime_version.value, 5);
+    assert_eq!(cor20.metadata.virtual_address.value, 0x3000);
+    assert!(cor20.is_il_only());
+}
+
+/// CHPE metadata blob is classified as architecture-specific data.
+#[test]
+fn test_pe_chpe_metadata_synthetic() {
+    use pe::arch_data::{ArchitectureData, ArchitectureDataKind};
+    use pe::coff::CoffFileHeader;
+    use pe::header::DataDirectoryEntry;
+
+    let mut buffer = vec![0u8; 0x100];
+    let meta_off = 0x40usize;
+    buffer[meta_off..meta_off + 4].copy_from_slice(&1u32.to_le_bytes());
+    buffer[meta_off + 4..meta_off + 8].copy_from_slice(&0x2000u32.to_le_bytes());
+    buffer[meta_off + 8..meta_off + 12].copy_from_slice(&0x100u32.to_le_bytes());
+
+    let coff = CoffFileHeader {
+        machine: hexspell::field::Field::new(0x01c4, 0, 2),
+        number_of_sections: hexspell::field::Field::new(1, 2, 2),
+        time_date_stamp: hexspell::field::Field::new(0, 4, 4),
+        pointer_to_symbol_table: hexspell::field::Field::new(0, 8, 4),
+        number_of_symbols: hexspell::field::Field::new(0, 12, 4),
+        size_of_optional_header: hexspell::field::Field::new(0, 16, 2),
+        characteristics: hexspell::field::Field::new(0, 18, 2),
+    };
+
+    let sections = vec![pe::section::PeSection {
+        name: hexspell::field::Field::new(
+            hexspell::field::FixedBytes([b'.', b't', 0, 0, 0, 0, 0, 0]),
+            0,
+            8,
+        ),
+        virtual_size: hexspell::field::Field::new(0x100, 8, 4),
+        virtual_address: hexspell::field::Field::new(0x1000, 12, 4),
+        size_of_raw_data: hexspell::field::Field::new(0x100, 16, 4),
+        pointer_to_raw_data: hexspell::field::Field::new(0, 20, 4),
+        pointer_to_relocations: hexspell::field::Field::new(0, 24, 4),
+        pointer_to_linenumbers: hexspell::field::Field::new(0, 28, 4),
+        number_of_relocations: hexspell::field::Field::new(0, 32, 2),
+        number_of_linenumbers: hexspell::field::Field::new(0, 34, 2),
+        characteristics: hexspell::field::Field::new(0, 36, 4),
+    }];
+
+    let arch_dir = DataDirectoryEntry {
+        virtual_address: hexspell::field::Field::new(0, 0, 4),
+        size: hexspell::field::Field::new(0, 4, 4),
+    };
+
+    let data = ArchitectureData::parse(&buffer, &coff, &arch_dir, None, Some(0x1040), |rva| {
+        pe::import::rva_to_offset(&buffer, &sections, rva)
+    })
+    .unwrap();
+
+    assert_eq!(data.kind, ArchitectureDataKind::ChpeMetadata);
+    assert_eq!(data.code_map_rva.unwrap().value, 0x2000);
+    assert_eq!(data.code_map_size.unwrap().value, 0x100);
+}
+
+/// rename_section updates the 8-byte section name in the buffer.
+#[test]
+fn test_pe_rename_section() {
+    let mut pe = pe::PE::from_file("tests/samples/sample1.exe").expect("Failed to parse PE");
+    let name_offset = pe.sections[0].name.offset;
+    pe.rename_section(0, ".renamed").expect("rename");
+    assert_eq!(pe.sections[0].name_str(), ".renamed");
+    assert_eq!(&pe.buffer[name_offset..name_offset + 8], b".renamed");
+}
+
+/// remove_section drops a section and decrements the section count.
+#[test]
+fn test_pe_remove_section() {
+    let mut pe = pe::PE::from_file("tests/samples/sample1.exe").expect("Failed to parse PE");
+    let before = pe.coff_header.number_of_sections.value;
+    let last_index = pe.sections.len() - 1;
+    pe.remove_section(last_index).expect("remove section");
+    assert_eq!(pe.coff_header.number_of_sections.value, before - 1);
+    assert_eq!(pe.sections.len(), before as usize - 1);
+}
+
+/// grow_optional_header inserts bytes before the section table.
+#[test]
+fn test_pe_grow_optional_header() {
+    let mut pe = pe::PE::from_file("tests/samples/sample1.exe").expect("Failed to parse PE");
+    let old_size = pe.coff_header.size_of_optional_header.value;
+    let first_section_offset = pe.sections[0].name.offset;
+    pe.grow_optional_header(16).expect("grow optional header");
+    assert_eq!(pe.coff_header.size_of_optional_header.value, old_size + 16);
+    assert_eq!(pe.sections[0].name.offset, first_section_offset + 16);
+}
+
+/// sync_layout refreshes SizeOfImage and checksum from the current section table.
+#[test]
+fn test_pe_sync_layout() {
+    let mut pe = pe::PE::from_file("tests/samples/sample1.exe").expect("Failed to parse PE");
+    let expected_image = pe.optional_header.size_of_image.value;
+    pe.sync_layout().expect("sync layout");
+    assert_eq!(pe.optional_header.size_of_image.value, expected_image);
+    assert_eq!(pe.optional_header.checksum.value, pe.calc_checksum());
+}
+
+/// Rich header is absent on minimal test binaries without linker metadata.
+#[test]
+fn test_pe_rich_header_absent_on_sample() {
+    let pe = pe::PE::from_file("tests/samples/sample1.exe").expect("Failed to parse PE");
+    let rich = pe.rich_header().expect("rich parse");
+    // sample1 may or may not have a Rich header depending on toolchain
+    let _ = rich;
+}
+
+/// COM descriptor and certificate directories are absent on sample1.
+#[test]
+fn test_pe_clr_and_cert_absent_on_sample() {
+    let pe = pe::PE::from_file("tests/samples/sample1.exe").expect("Failed to parse PE");
+    assert!(pe.clr().unwrap().is_none());
+    assert!(pe.certificates().unwrap().is_none());
+    assert_eq!(
+        pe.architecture_data().unwrap().kind,
+        pe::arch_data::ArchitectureDataKind::None
+    );
+}

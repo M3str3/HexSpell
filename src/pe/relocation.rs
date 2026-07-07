@@ -25,6 +25,7 @@ pub const IMAGE_REL_BASED_HIGHADJ: u16 = 4;
 pub const IMAGE_REL_BASED_DIR64: u16 = 10;
 
 /// One 16-bit relocation entry inside an `IMAGE_BASE_RELOCATION` block.
+#[derive(Debug, Clone)]
 pub struct BaseRelocationEntry {
     /// Raw relocation word (`type << 12 | offset`).
     pub raw: Field<u16>,

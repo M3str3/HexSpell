@@ -83,6 +83,12 @@ pub enum Architecture {
     X86,
     /// `IMAGE_FILE_MACHINE_AMD64` (`0x8664`).
     X64,
+    /// `IMAGE_FILE_MACHINE_ARMNT` (`0x01c4`) — ARM32 / CHPE.
+    Armnt,
+    /// `IMAGE_FILE_MACHINE_ARM64` (`0xAA64`).
+    Arm64,
+    /// `IMAGE_FILE_MACHINE_ARM64X` (`0xA64E`) — ARM64X hybrid.
+    Arm64x,
     /// Any other machine value.
     Unknown,
 }
@@ -92,6 +98,9 @@ impl fmt::Display for Architecture {
         let s = match *self {
             Architecture::X86 => "x86",
             Architecture::X64 => "x64",
+            Architecture::Armnt => "armnt",
+            Architecture::Arm64 => "arm64",
+            Architecture::Arm64x => "arm64x",
             Architecture::Unknown => "Unknown",
         };
         write!(f, "{s}")
@@ -104,6 +113,9 @@ impl Architecture {
         match value {
             0x014c => Architecture::X86,
             0x8664 => Architecture::X64,
+            0x01c4 => Architecture::Armnt,
+            0xAA64 => Architecture::Arm64,
+            0xA64E => Architecture::Arm64x,
             _ => Architecture::Unknown,
         }
     }

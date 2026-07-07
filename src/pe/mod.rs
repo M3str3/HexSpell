@@ -17,7 +17,10 @@ use std::io::{self, Write};
 use crate::errors::FileParseError;
 use crate::field::{Field, FixedBytes};
 
+pub mod arch_data;
 pub mod bound;
+pub mod certificate;
+pub mod clr;
 pub mod coff;
 pub mod debug;
 pub mod delay;
@@ -26,9 +29,12 @@ pub mod exception;
 pub mod export;
 pub mod header;
 pub mod import;
+pub mod layout;
+pub mod linenum;
 pub mod load_config;
 pub mod relocation;
 pub mod resource;
+pub mod rich;
 pub mod section;
 pub mod section_reloc;
 pub mod symbol;
@@ -256,6 +262,99 @@ impl PE {
             .get(index)
             .ok_or(FileParseError::BufferOverflow)?;
         section_reloc::SectionRelocationBlock::parse(&self.buffer, index, section)
+    }
+
+    /// Parses COFF line numbers attached to section `index`.
+    pub fn section_linenumbers(
+        &self,
+        index: usize,
+    ) -> Result<linenum::LineNumberBlock, FileParseError> {
+        let section = self
+            .sections
+            .get(index)
+            .ok_or(FileParseError::BufferOverflow)?;
+        linenum::LineNumberBlock::parse(&self.buffer, index, section)
+    }
+
+    /// Parses the Rich header between the DOS stub and PE signature when present.
+    pub fn rich_header(&self) -> Result<Option<rich::RichHeader>, FileParseError> {
+        rich::RichHeader::parse(&self.buffer, self.dos_header.e_lfanew.value as usize)
+    }
+
+    /// Parses the Authenticode certificate table when present (read-only overlay).
+    pub fn certificates(&self) -> Result<Option<certificate::CertificateTable>, FileParseError> {
+        if !self.optional_header.has_data_directory(header::SECURITY) {
+            return Ok(None);
+        }
+        let entry = &self.optional_header.data_directories[header::SECURITY];
+        if entry.virtual_address.value == 0 || entry.size.value == 0 {
+            return Ok(None);
+        }
+        Ok(Some(certificate::CertificateTable::parse(
+            &self.buffer,
+            entry.virtual_address.value,
+            entry.size.value,
+        )?))
+    }
+
+    /// Parses the CLR `IMAGE_COR20_HEADER` when the COM descriptor directory is present.
+    pub fn clr(&self) -> Result<Option<clr::Cor20Header>, FileParseError> {
+        if !self
+            .optional_header
+            .has_data_directory(header::COM_DESCRIPTOR)
+        {
+            return Ok(None);
+        }
+        let entry = &self.optional_header.data_directories[header::COM_DESCRIPTOR];
+        if entry.virtual_address.value == 0 {
+            return Ok(None);
+        }
+        let offset = self.rva_to_offset(entry.virtual_address.value)?;
+        Ok(Some(clr::Cor20Header::parse(&self.buffer, offset)?))
+    }
+
+    /// Inspects architecture-specific metadata (ARM64x, CHPE, architecture directory).
+    pub fn architecture_data(&self) -> Result<arch_data::ArchitectureData, FileParseError> {
+        let arch_dir = &self.optional_header.data_directories[header::ARCHITECTURE];
+        let (hybrid_meta, chpe_meta) =
+            if self.optional_header.has_data_directory(header::LOAD_CONFIG) {
+                let lc = &self.optional_header.data_directories[header::LOAD_CONFIG];
+                if lc.virtual_address.value != 0 {
+                    let offset = self.rva_to_offset(lc.virtual_address.value)?;
+                    let size = self
+                        .load_config()
+                        .ok()
+                        .flatten()
+                        .map(|cfg| cfg.size.value)
+                        .unwrap_or(0);
+                    match arch_data::HybridLoadConfigFields::parse(
+                        &self.buffer,
+                        offset,
+                        size,
+                        self.coff_header.machine.value,
+                        self.optional_header.pe_type()?,
+                    ) {
+                        Ok(fields) => {
+                            let pointer = fields.hybrid_metadata_pointer.map(|f| f.value);
+                            (pointer, pointer)
+                        }
+                        Err(_) => (None, None),
+                    }
+                } else {
+                    (None, None)
+                }
+            } else {
+                (None, None)
+            };
+
+        arch_data::ArchitectureData::parse(
+            &self.buffer,
+            &self.coff_header,
+            arch_dir,
+            hybrid_meta,
+            chpe_meta,
+            |rva| self.rva_to_offset(rva),
+        )
     }
 
     /// Updates a data directory RVA in the optional header and buffer.
