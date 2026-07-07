@@ -955,8 +955,7 @@ impl ELF {
                 let last = self
                     .program_headers
                     .iter()
-                    .filter(|ph| ph.p_type() == PT_LOAD)
-                    .next_back();
+                    .rfind(|ph| ph.p_type() == PT_LOAD);
                 match last {
                     Some(ph) => {
                         let end = ph.p_vaddr() + ph.p_memsz();
