@@ -67,7 +67,6 @@
     - *Changed*: layout field API — read `seg.vmaddr()`, patch `seg.vmaddr_mut()` (removed `*_value()` duplicates).
 - **Documentation**
     - *Added*: `docs/coverage.md` coverage matrix; cross-format section in `docs/guide.md`.
-    - *Changed*: `API_DESIGN.md` updated for 1.0 (accessors, insert complexity, migration §8, and 1:1 gap matrix).
     - *Changed*: Crate-level rustdoc examples for PE, ELF, and Mach-O in `lib.rs`.
 
 ## [0.0.5](https://github.com/M3str3/HexSpell/pull/10) - 2025-08-07
