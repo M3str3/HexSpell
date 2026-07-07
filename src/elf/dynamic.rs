@@ -60,6 +60,18 @@ pub const DT_JMPREL: u64 = 23;
 pub const DT_RUNPATH: u64 = 29;
 /// `DT_FLAGS` — dynamic flags.
 pub const DT_FLAGS: u64 = 30;
+/// `DT_GNU_HASH` — address of the GNU symbol hash table.
+pub const DT_GNU_HASH: u64 = 0x6fff_fef5;
+/// `DT_VERSYM` — address of the version symbol table.
+pub const DT_VERSYM: u64 = 0x6fff_fff0;
+/// `DT_VERDEF` — address of version definitions.
+pub const DT_VERDEF: u64 = 0x6fff_fffc;
+/// `DT_VERDEFNUM` — number of version definitions.
+pub const DT_VERDEFNUM: u64 = 0x6fff_fffd;
+/// `DT_VERNEED` — address of required version records.
+pub const DT_VERNEED: u64 = 0x6fff_fffe;
+/// `DT_VERNEEDNUM` — number of required version records.
+pub const DT_VERNEEDNUM: u64 = 0x6fff_ffff;
 
 /// Typed view of a dynamic tag for the common entries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -90,6 +102,12 @@ pub enum DynamicTag {
     JmpRel,
     RunPath,
     Flags,
+    GnuHash,
+    VerSym,
+    VerDef,
+    VerDefNum,
+    VerNeed,
+    VerNeedNum,
     /// Any tag not covered by the named variants.
     Other(u64),
 }
@@ -123,6 +141,12 @@ impl From<u64> for DynamicTag {
             DT_JMPREL => DynamicTag::JmpRel,
             DT_RUNPATH => DynamicTag::RunPath,
             DT_FLAGS => DynamicTag::Flags,
+            DT_GNU_HASH => DynamicTag::GnuHash,
+            DT_VERSYM => DynamicTag::VerSym,
+            DT_VERDEF => DynamicTag::VerDef,
+            DT_VERDEFNUM => DynamicTag::VerDefNum,
+            DT_VERNEED => DynamicTag::VerNeed,
+            DT_VERNEEDNUM => DynamicTag::VerNeedNum,
             other => DynamicTag::Other(other),
         }
     }

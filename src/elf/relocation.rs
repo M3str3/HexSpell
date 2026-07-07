@@ -9,7 +9,7 @@ use crate::errors::FileParseError;
 use crate::field::{ByteOrder, Field};
 
 /// ELF32 relocation fields (with or without addend).
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Rel32Fields {
     pub r_offset: Field<u32>,
     pub r_info: Field<u32>,
@@ -18,7 +18,7 @@ pub struct Rel32Fields {
 }
 
 /// ELF64 relocation fields (with or without addend).
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Rel64Fields {
     pub r_offset: Field<u64>,
     pub r_info: Field<u64>,
@@ -29,7 +29,7 @@ pub struct Rel64Fields {
 /// Relocation entry — ELF32 or ELF64 variant.
 ///
 /// `.rel` entries have no addend; `.rela` entries carry one. The accessors hide the difference.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum RelocationEntry {
     Rel32(Rel32Fields),
     Rel64(Rel64Fields),

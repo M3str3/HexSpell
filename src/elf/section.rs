@@ -33,8 +33,14 @@ pub const SHT_DYNSYM: u32 = 11;
 pub const SHT_INIT_ARRAY: u32 = 14;
 /// `SHT_FINI_ARRAY` — array of termination functions.
 pub const SHT_FINI_ARRAY: u32 = 15;
+/// `SHT_PREINIT_ARRAY` — array of pre-initialization functions.
+pub const SHT_PREINIT_ARRAY: u32 = 16;
+/// `SHT_GROUP` — section group / COMDAT metadata.
+pub const SHT_GROUP: u32 = 17;
 /// `SHT_GNU_HASH` — GNU-style symbol hash table.
 pub const SHT_GNU_HASH: u32 = 0x6fff_fff6;
+/// `SHT_GNU_VERDEF` — version definitions (`.gnu.version_d`).
+pub const SHT_GNU_VERDEF: u32 = 0x6fff_fffd;
 /// `SHT_GNU_VERSYM` — symbol version table (`.gnu.version`).
 pub const SHT_GNU_VERSYM: u32 = 0x6fff_ffff;
 /// `SHT_GNU_VERNEED` — required version definitions (`.gnu.version_r`).
@@ -44,6 +50,7 @@ pub mod section_flags {
     pub const WRITE: u64 = 1;
     pub const ALLOC: u64 = 2;
     pub const EXECINSTR: u64 = 4;
+    pub const GROUP: u64 = 0x200;
 }
 
 /// Typed view of `sh_type` for the common section kinds.
@@ -62,7 +69,10 @@ pub enum SectionType {
     Dynsym,
     InitArray,
     FiniArray,
+    PreinitArray,
+    Group,
     GnuHash,
+    GnuVerdef,
     GnuVersym,
     GnuVerneed,
     /// Any `sh_type` not covered by the named variants.
@@ -85,7 +95,10 @@ impl From<u32> for SectionType {
             SHT_DYNSYM => SectionType::Dynsym,
             SHT_INIT_ARRAY => SectionType::InitArray,
             SHT_FINI_ARRAY => SectionType::FiniArray,
+            SHT_PREINIT_ARRAY => SectionType::PreinitArray,
+            SHT_GROUP => SectionType::Group,
             SHT_GNU_HASH => SectionType::GnuHash,
+            SHT_GNU_VERDEF => SectionType::GnuVerdef,
             SHT_GNU_VERSYM => SectionType::GnuVersym,
             SHT_GNU_VERNEED => SectionType::GnuVerneed,
             other => SectionType::Other(other),
@@ -280,14 +293,14 @@ impl SectionHeaderEntry {
         buffer: &[u8],
         offset: u64,
         size: u16,
-        count: u16,
+        count: usize,
         class: ElfClass,
         order: ByteOrder,
     ) -> Result<Vec<SectionHeaderEntry>, errors::FileParseError> {
         let mut headers = Vec::new();
         let start = offset as usize;
 
-        for i in 0..count as usize {
+        for i in 0..count {
             let base = start + i * size as usize;
             if buffer.len() < base + size as usize {
                 return Err(errors::FileParseError::BufferOverflow);
@@ -409,4 +422,16 @@ pub struct NewSection {
     pub sh_type: u32,
     /// `sh_flags` (`SHF_*`).
     pub flags: u64,
+    /// Optional virtual address for `sh_addr`; defaults to `0`.
+    pub addr: Option<u64>,
+    /// Optional file offset. Defaults to appending the contents.
+    pub offset: Option<u64>,
+    /// Optional section link (`sh_link`); defaults to `0`.
+    pub link: Option<u32>,
+    /// Optional section info (`sh_info`); defaults to `0`.
+    pub info: Option<u32>,
+    /// Optional section alignment (`sh_addralign`); defaults to `1`.
+    pub addralign: Option<u64>,
+    /// Optional entry size (`sh_entsize`); defaults to `0`.
+    pub entsize: Option<u64>,
 }
