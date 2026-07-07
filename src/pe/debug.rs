@@ -77,7 +77,7 @@ impl DebugDirectory {
             });
         }
 
-        if size % DebugDirectoryEntry::SIZE != 0 {
+        if !size.is_multiple_of(DebugDirectoryEntry::SIZE) {
             return Err(FileParseError::InvalidFileFormat);
         }
 

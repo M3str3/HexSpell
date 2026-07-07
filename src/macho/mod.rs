@@ -140,10 +140,7 @@ impl MachO {
     }
 
     /// Returns a borrowed view of one FAT slice inside `buffer` without copying.
-    pub fn fat_slice_ref<'a>(
-        buffer: &'a [u8],
-        index: usize,
-    ) -> Result<&'a [u8], errors::FileParseError> {
+    pub fn fat_slice_ref(buffer: &[u8], index: usize) -> Result<&[u8], errors::FileParseError> {
         let fat =
             fat::FatHeader::parse(buffer)?.ok_or(errors::FileParseError::InvalidFileFormat)?;
         let arch = fat
@@ -344,7 +341,7 @@ impl MachO {
         index: usize,
         cmd_bytes: &[u8],
     ) -> Result<(), errors::FileParseError> {
-        if cmd_bytes.len() < 8 || cmd_bytes.len() % 8 != 0 {
+        if cmd_bytes.len() < 8 || !cmd_bytes.len().is_multiple_of(8) {
             return Err(errors::FileParseError::InvalidFileFormat);
         }
         let at = self.load_command_offset(index)?;

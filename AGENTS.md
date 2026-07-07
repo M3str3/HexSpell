@@ -12,7 +12,7 @@ executables. The public API mirrors the on-disk layout: header fields are `Field
 2. **Tests required** — every functional change updates tests; bugfixes need a test that fails without the fix.
 3. **Small scope** — no unrequested features or drive-by refactors.
 4. **Docs when behavior changes** — see [Documentation and changelog](#documentation-and-changelog).
-5. **Finish with** `cargo fmt` and `cargo test`.
+5. **Finish with** `cargo fmt`, `cargo clippy --all-targets -- -D warnings`, and `cargo test`.
 
 Design constraints (do not break casually):
 
@@ -47,7 +47,7 @@ Example — add `PE::foo()` for a data directory:
 - **ELF / Mach-O endianness** — read `ei_data` / header magic; use `ByteOrder` and `update_with`, not raw little-endian writes.
 - **Section names** — PE uses `Field<FixedBytes<8>>` (`name_str()` for display); long COFF names go through `strings::pe_section_name`.
 - **New binaries** — every file in `tests/samples/` needs provenance in `tests/readme.md` and usually a rebuild recipe in `tests/source/`.
-- **Warnings are errors in CI** — `RUSTFLAGS="-D warnings"` in `.github/workflows/rust.yml`.
+- **Warnings are errors in CI** — `RUSTFLAGS="-D warnings"` and `cargo clippy --all-targets -- -D warnings` in `.github/workflows/rust.yml`.
 
 ## Repo map
 
@@ -63,6 +63,7 @@ Example — add `PE::foo()` for a data directory:
 
 ```sh
 cargo fmt
+cargo clippy --all-targets -- -D warnings
 cargo test                    # full suite
 cargo test --test pe          # PE only
 cargo test test_pe64_parse    # PE32+ fixture

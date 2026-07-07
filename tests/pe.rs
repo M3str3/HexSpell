@@ -485,7 +485,7 @@ fn test_pe_insert_section_parsed_short_name_no_panic() {
     let parsed =
         pe::section::PeSection::parse_section(&pe.buffer, offset).expect("Failed to parse section");
     assert!(
-        parsed.name_str().as_bytes().len() < 8,
+        parsed.name_str().len() < 8,
         "Parsed section name should be shorter than 8 bytes"
     );
 

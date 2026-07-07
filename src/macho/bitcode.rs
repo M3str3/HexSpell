@@ -13,7 +13,7 @@ pub const LLVM_SEGMENT_NAME: &str = "__LLVM";
 pub const LLVM_BUNDLE_SECTION: &str = "__bundle";
 
 /// Returns the `__LLVM` segment, if present.
-pub fn llvm_segment<'a>(segments: &'a [SegmentEntry]) -> Option<&'a SegmentEntry> {
+pub fn llvm_segment(segments: &[SegmentEntry]) -> Option<&SegmentEntry> {
     segments
         .iter()
         .find(|s| s.name().trim_end_matches('\0') == LLVM_SEGMENT_NAME)

@@ -163,6 +163,7 @@ impl ResourceTree {
     }
 }
 
+#[allow(clippy::only_used_in_recursion)]
 fn parse_node(
     buffer: &[u8],
     resource_base: usize,

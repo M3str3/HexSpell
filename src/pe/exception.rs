@@ -50,7 +50,7 @@ impl ExceptionDirectory {
             });
         }
 
-        if size % RuntimeFunction::SIZE != 0 {
+        if !size.is_multiple_of(RuntimeFunction::SIZE) {
             return Err(FileParseError::InvalidFileFormat);
         }
 

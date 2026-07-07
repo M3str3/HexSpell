@@ -281,8 +281,12 @@ impl OptionalHeader {
                 virtual_address: Field::new(0, data_dirs_off + i * 8, 4),
                 size: Field::new(0, data_dirs_off + i * 8 + 4, 4),
             });
-        for i in 0..active_directories {
-            data_directories[i] = DataDirectoryEntry::parse(buffer, data_dirs_off + i * 8)?;
+        for (i, dir) in data_directories
+            .iter_mut()
+            .enumerate()
+            .take(active_directories)
+        {
+            *dir = DataDirectoryEntry::parse(buffer, data_dirs_off + i * 8)?;
         }
 
         Ok(OptionalHeader {

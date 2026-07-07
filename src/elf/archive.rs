@@ -87,7 +87,7 @@ impl Archive {
             cursor = data_offset
                 .checked_add(size as usize)
                 .ok_or(FileParseError::BufferOverflow)?;
-            if cursor % 2 != 0 {
+            if !cursor.is_multiple_of(2) {
                 cursor += 1;
             }
         }

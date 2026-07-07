@@ -494,7 +494,6 @@ pub fn parse_build_tools(
         if buffer.len() < off + 8 {
             return Err(errors::FileParseError::BufferOverflow);
         }
-        let order = order;
         out.push(BuildToolVersion {
             tool: Field::new(order.read_u32(buffer, off)?, off, 4),
             version: Field::new(order.read_u32(buffer, off + 4)?, off + 4, 4),

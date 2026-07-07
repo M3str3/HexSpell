@@ -1296,7 +1296,7 @@ fn test_elf_extended_shnum_core_and_ar_archive() {
 
     let mut ar =
         b"!<arch>\nhello.o/        0           0     0     100644  4         `\nELF!".to_vec();
-    if ar.len() % 2 != 0 {
+    if !ar.len().is_multiple_of(2) {
         ar.push(b'\n');
     }
     let archive = elf::ELF::parse_archive(&ar).expect("parse ar");
@@ -1351,6 +1351,7 @@ fn write_sh64(
     buffer[base + 56..base + 64].copy_from_slice(&entsize.to_le_bytes());
 }
 
+#[allow(clippy::too_many_arguments)]
 fn write_ph64(
     buffer: &mut [u8],
     index: usize,

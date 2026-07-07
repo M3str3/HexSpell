@@ -101,9 +101,9 @@ pub fn pe_import_strings_from_directory(imports: &ImportDirectory) -> Vec<(Strin
             let names = dll
                 .entries
                 .iter()
-                .filter_map(|entry| match entry {
-                    ImportEntry::ByName { by_name, .. } => Some(by_name.name.clone()),
-                    ImportEntry::Ordinal { ordinal, .. } => Some(format!("#{}", ordinal)),
+                .map(|entry| match entry {
+                    ImportEntry::ByName { by_name, .. } => by_name.name.clone(),
+                    ImportEntry::Ordinal { ordinal, .. } => format!("#{}", ordinal),
                 })
                 .collect();
             (dll.dll_name.clone(), names)

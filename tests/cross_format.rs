@@ -361,7 +361,7 @@ fn big_endian_macho_segment_vmaddr_round_trip() {
 #[test]
 fn fixture_pe_combined_features() {
     let pe32 = pe::PE::from_file("tests/samples/sample1.exe").expect("sample1");
-    assert!(pe32.imports().unwrap().dlls.len() >= 1);
+    assert!(!pe32.imports().unwrap().dlls.is_empty());
     assert!(pe32.tls().unwrap().is_some());
 
     let dll = pe::PE::from_file("tests/samples/sample2.dll").expect("sample2");
