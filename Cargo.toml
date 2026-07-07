@@ -1,15 +1,18 @@
 [package]
 name = "hexspell"
-version = "0.0.5"
+version = "1.0.0"
 authors=["Mestre <namestre3@protonmail.com>"]
 edition = "2021"
-description = "A open source lib to parse executables in Rust"
+rust-version = "1.88"
+description = "Dependency-free Rust library for parsing and patching PE, ELF, and Mach-O executables with a 1:1 on-disk API"
 license = "MIT"
 repository = "https://github.com/M3str3/HexSpell"
+homepage = "https://github.com/M3str3/HexSpell"
+documentation = "https://docs.rs/hexspell"
 readme = "README.md"
 exclude = ["tests/*"]
 keywords = ["binary", "executable", "parser", "PE", "ELF" ]
 categories = ["development-tools", "parsing"]
 
 [dev-dependencies]
-toml = "0.8.12"
+toml = "1.0" # For testing purpose

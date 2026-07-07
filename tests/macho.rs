@@ -11,8 +11,8 @@ use std::fs;
 use toml::Value;
 
 use hexspell::errors::FileParseError;
+use hexspell::field::ByteOrder;
 use hexspell::macho; // <-- Testing module
-use hexspell::macho::header::Endianness;
 
 /// ============================================
 /// Testing reading and parsing in a Mach-O file
@@ -21,9 +21,7 @@ use hexspell::macho::header::Endianness;
 fn test_macho_parse() {
     let toml_contents: String =
         fs::read_to_string("tests/tests.toml").expect("Failed to read tests.toml");
-    let data: Value = toml_contents
-        .parse::<Value>()
-        .expect("Failed to parse TOML");
+    let data: Value = toml::from_str(&toml_contents).expect("Failed to parse TOML");
 
     // MACHO FILES
     if let Some(elf) = data.get("macho").and_then(|v| v.as_table()) {
@@ -116,6 +114,40 @@ fn test_macho_parse() {
     }
 }
 
+/// 32-bit Mach-O must not expose a reserved field at offset 28
+#[test]
+fn test_macho_32bit_reserved_is_none() {
+    let macho_file = macho::MachO::from_file("tests/samples/machO-OSX-x86-ls")
+        .expect("Error parsing MachO file");
+    assert!(
+        macho_file.header.reserved.is_none(),
+        "32-bit Mach-O must not have a reserved field"
+    );
+}
+
+/// 64-bit Mach-O must expose reserved at offset 28
+#[test]
+fn test_macho_64bit_reserved_is_some() {
+    let buffer = vec![
+        0xCF, 0xFA, 0xED, 0xFE, // magic (64-bit LE)
+        0x07, 0x00, 0x00, 0x00, // cputype
+        0x03, 0x00, 0x00, 0x00, // cpusubtype
+        0x02, 0x00, 0x00, 0x00, // filetype
+        0x00, 0x00, 0x00, 0x00, // ncmds
+        0x00, 0x00, 0x00, 0x00, // sizeofcmds
+        0x00, 0x00, 0x00, 0x00, // flags
+        0x42, 0x00, 0x00, 0x00, // reserved
+    ];
+    let macho_file = macho::MachO::from_buffer(buffer.clone()).expect("64-bit parse failed");
+    let reserved = macho_file
+        .header
+        .reserved
+        .as_ref()
+        .expect("64-bit Mach-O must have reserved");
+    assert_eq!(reserved.value, 0x42);
+    assert_eq!(reserved.offset, 28);
+}
+
 /// Parsing a buffer without a valid Mach-O magic number should fail
 #[test]
 fn test_macho_invalid_buffer() {
@@ -137,7 +169,7 @@ fn test_macho_parse_little_endian() {
         0x00, 0x00, 0x00, 0x00, // flags
     ];
     let macho_file = macho::MachO::from_buffer(buffer).expect("Error parsing little-endian MachO");
-    assert_eq!(macho_file.header.endianness, Endianness::Little);
+    assert_eq!(macho_file.byte_order(), ByteOrder::Little);
     assert_eq!(macho_file.header.magic.value, 0xFEEDFACE);
     assert_eq!(macho_file.header.cpu_type.value, 0x00000007);
     assert_eq!(macho_file.header.cpu_subtype.value, 0x00000003);
@@ -172,7 +204,7 @@ fn test_macho_parse_big_endian() {
         0x00, 0x00, 0x00, 0x00, // flags
     ];
     let macho_file = macho::MachO::from_buffer(buffer).expect("Error parsing big-endian MachO");
-    assert_eq!(macho_file.header.endianness, Endianness::Big);
+    assert_eq!(macho_file.byte_order(), ByteOrder::Big);
     assert_eq!(macho_file.header.magic.value, 0xFEEDFACE);
     assert_eq!(macho_file.header.cpu_type.value, 0x00000007);
     assert_eq!(macho_file.header.cpu_subtype.value, 0x00000003);
@@ -221,7 +253,7 @@ fn test_macho_parse_fat() {
     buffer.extend_from_slice(&inner);
 
     let macho_file = macho::MachO::from_buffer(buffer).expect("Error parsing FAT MachO");
-    assert_eq!(macho_file.header.endianness, Endianness::Little);
+    assert_eq!(macho_file.byte_order(), ByteOrder::Little);
     assert_eq!(macho_file.header.magic.value, 0xFEEDFACE);
 }
 
@@ -240,6 +272,35 @@ fn test_macho_fat_invalid_offset() {
 
     let result = macho::MachO::from_buffer(buffer);
     assert!(matches!(result, Err(FileParseError::BufferOverflow)));
+}
+
+/// Load command with cmdsize zero must not loop forever
+#[test]
+fn test_macho_cmdsize_zero_invalid() {
+    let buffer = vec![
+        0xCE, 0xFA, 0xED, 0xFE, // magic (little-endian 32-bit)
+        0x07, 0x00, 0x00, 0x00, // cputype
+        0x03, 0x00, 0x00, 0x00, // cpusubtype
+        0x02, 0x00, 0x00, 0x00, // filetype
+        0x01, 0x00, 0x00, 0x00, // ncmds = 1
+        0x08, 0x00, 0x00, 0x00, // sizeofcmds = 8
+        0x00, 0x00, 0x00, 0x00, // flags
+        0x01, 0x00, 0x00, 0x00, // LC_SEGMENT cmd
+        0x00, 0x00, 0x00, 0x00, // cmdsize = 0
+    ];
+    let result = macho::MachO::from_buffer(buffer);
+    assert!(matches!(result, Err(FileParseError::InvalidFileFormat)));
+}
+
+/// 32-bit LC_SEGMENT must use u32 layout for segment fields
+#[test]
+fn test_macho_segment_32bit_vmaddr() {
+    let macho_file = macho::MachO::from_file("tests/samples/machO-OSX-x86-ls")
+        .expect("Error parsing MachO file");
+    assert!(!macho_file.segments.is_empty());
+    assert_eq!(macho_file.segments[0].name(), "__PAGEZERO");
+    assert_eq!(macho_file.segments[0].vmaddr(), 0);
+    assert_eq!(macho_file.segments[0].vmaddr_size(), 4);
 }
 
 /// Ensure writing a Mach-O file to disk succeeds and preserves contents
@@ -270,4 +331,398 @@ fn test_macho_write_file_fail() {
         .join("macho.bin");
     let result = macho_file.write_file(invalid_path.to_str().unwrap());
     assert!(result.is_err());
+}
+
+/// Nested section records must be parsed from segment load commands (32-bit sample)
+#[test]
+fn test_macho_sections_parsed() {
+    let macho_file = macho::MachO::from_file("tests/samples/machO-OSX-x86-ls")
+        .expect("Error parsing MachO file");
+    // __TEXT has 5 sections, __DATA has 7 → 12 total.
+    assert_eq!(macho_file.sections.len(), 12);
+    let first = &macho_file.sections[0];
+    assert_eq!(first.name(), "__text");
+    assert_eq!(first.segment_name(), "__TEXT");
+    assert_eq!(first.addr(), 5896);
+    assert_eq!(first.size(), 15988);
+    assert_eq!(first.offset(), 1800);
+}
+
+/// LC_SYMTAB symbols must resolve their names against the string table
+#[test]
+fn test_macho_symbols_parsed() {
+    let macho_file = macho::MachO::from_file("tests/samples/machO-OSX-x86-ls")
+        .expect("Error parsing MachO file");
+    let symbols = macho_file
+        .symbols()
+        .expect("symbol parse")
+        .expect("sample has LC_SYMTAB");
+    assert_eq!(symbols.symbols.len(), 86);
+    // At least one symbol name should resolve to a non-empty C string.
+    assert!(symbols.symbols.iter().any(|s| !s.name.is_empty()));
+}
+
+/// Linked dylibs must be listed with their resolved paths
+#[test]
+fn test_macho_linked_dylibs() {
+    let macho_file = macho::MachO::from_file("tests/samples/machO-OSX-x86-ls")
+        .expect("Error parsing MachO file");
+    let dylibs = macho_file.linked_dylibs().expect("dylib parse");
+    assert_eq!(dylibs.len(), 3);
+    assert!(dylibs.iter().any(|d| d == "/usr/lib/libSystem.B.dylib"));
+    assert!(dylibs.iter().any(|d| d.contains("libncurses")));
+}
+
+/// Typed command iteration must expose the modeled load commands
+#[test]
+fn test_macho_typed_commands() {
+    use macho::load_command::TypedCommand;
+    let macho_file = macho::MachO::from_file("tests/samples/machO-OSX-x86-ls")
+        .expect("Error parsing MachO file");
+    let typed = macho_file.typed_commands().expect("typed commands");
+
+    let has_symtab = typed.iter().any(|c| matches!(c, TypedCommand::Symtab(_)));
+    let has_dyld_info = typed.iter().any(|c| matches!(c, TypedCommand::DyldInfo(_)));
+    let has_dylinker = typed.iter().any(|c| matches!(c, TypedCommand::Dylinker(_)));
+    assert!(has_symtab, "expected an LC_SYMTAB typed command");
+    assert!(has_dyld_info, "expected an LC_DYLD_INFO typed command");
+    assert!(has_dylinker, "expected an LC_LOAD_DYLINKER typed command");
+
+    for c in &typed {
+        if let TypedCommand::Dylinker(s) = c {
+            assert_eq!(s.name, "/usr/lib/dyld");
+        }
+    }
+}
+
+/// A thin Mach-O reports no FAT architectures
+#[test]
+fn test_macho_fat_architectures_thin() {
+    let arches =
+        macho::MachO::fat_architectures("tests/samples/machO-OSX-x86-ls").expect("fat query");
+    assert!(arches.is_empty());
+}
+
+/// Typed section parsing for a hand-built 64-bit segment with one section_64
+#[test]
+fn test_macho_section_64_parsed() {
+    let mut buffer = vec![0u8; 256];
+    buffer[0..4].copy_from_slice(&0xFEEDFACFu32.to_le_bytes()); // 64-bit magic
+    buffer[16..20].copy_from_slice(&1u32.to_le_bytes()); // ncmds
+    buffer[20..24].copy_from_slice(&(72u32 + 80u32).to_le_bytes()); // sizeofcmds
+    let seg = 32usize;
+    buffer[seg..seg + 4].copy_from_slice(&0x19u32.to_le_bytes()); // LC_SEGMENT_64
+    buffer[seg + 4..seg + 8].copy_from_slice(&(72u32 + 80u32).to_le_bytes()); // cmdsize
+    buffer[seg + 8..seg + 24].copy_from_slice(b"__TEXT\0\0\0\0\0\0\0\0\0\0");
+    buffer[seg + 64..seg + 68].copy_from_slice(&1u32.to_le_bytes()); // nsects = 1
+
+    let sect = seg + 72;
+    buffer[sect..sect + 16].copy_from_slice(b"__text\0\0\0\0\0\0\0\0\0\0");
+    buffer[sect + 16..sect + 32].copy_from_slice(b"__TEXT\0\0\0\0\0\0\0\0\0\0");
+    buffer[sect + 32..sect + 40].copy_from_slice(&0x1000u64.to_le_bytes()); // addr
+    buffer[sect + 40..sect + 48].copy_from_slice(&0x40u64.to_le_bytes()); // size
+    buffer[sect + 48..sect + 52].copy_from_slice(&0x200u32.to_le_bytes()); // offset
+
+    let macho = macho::MachO::from_buffer(buffer).expect("parse macho");
+    assert_eq!(macho.sections.len(), 1);
+    assert_eq!(macho.sections[0].name(), "__text");
+    assert_eq!(macho.sections[0].addr(), 0x1000);
+    assert_eq!(macho.sections[0].size(), 0x40);
+    assert_eq!(macho.sections[0].offset(), 0x200);
+}
+
+/// insert_segment appends LC when load-command region has room
+#[test]
+fn test_macho_insert_segment() {
+    let mut buffer = vec![0u8; 256];
+    // 64-bit Mach-O header (32 bytes)
+    buffer[0..4].copy_from_slice(&0xFEEDFACFu32.to_le_bytes());
+    buffer[16..20].copy_from_slice(&1u32.to_le_bytes()); // ncmds
+    buffer[20..24].copy_from_slice(&72u32.to_le_bytes()); // sizeofcmds (one LC_SEGMENT_64)
+                                                          // LC_SEGMENT_64 at offset 32, cmdsize 72, fileoff 200
+    buffer[32..36].copy_from_slice(&0x19u32.to_le_bytes());
+    buffer[36..40].copy_from_slice(&72u32.to_le_bytes());
+    buffer[32 + 8..32 + 24].copy_from_slice(b"__TEXT\0\0\0\0\0\0\0\0\0\0");
+    buffer[32 + 40..32 + 48].copy_from_slice(&200u64.to_le_bytes()); // fileoff
+
+    let mut macho = macho::MachO::from_buffer(buffer).expect("parse macho");
+    assert_eq!(macho.segments.len(), 1);
+
+    macho
+        .insert_segment(macho::segment::NewSegment {
+            name: "__DATA.inj".to_string(),
+            data: vec![0x41, 0x42],
+            initprot: macho::segment::prot::READ | macho::segment::prot::WRITE,
+            maxprot: macho::segment::prot::READ | macho::segment::prot::WRITE,
+        })
+        .expect("insert_segment");
+
+    assert_eq!(macho.segments.len(), 2);
+    assert_eq!(macho.segments[1].name(), "__DATA.inj");
+    assert_eq!(macho.segments[1].filesize(), 2);
+}
+
+/// Typed views for version / thread / linker / fileset load commands
+#[test]
+fn test_macho_extended_typed_commands() {
+    use macho::load_command::{
+        TypedCommand, LC_BUILD_VERSION, LC_FILESET_ENTRY, LC_LINKER_OPTION, LC_SOURCE_VERSION,
+        LC_UNIXTHREAD, LC_VERSION_MIN_MACOSX,
+    };
+
+    let mut buffer = vec![0u8; 512];
+    buffer[0..4].copy_from_slice(&0xFEEDFACFu32.to_le_bytes());
+    buffer[16..20].copy_from_slice(&6u32.to_le_bytes()); // ncmds
+    let mut off = 32usize;
+    let write_lc = |buf: &mut Vec<u8>, at: usize, cmd: u32, size: u32| {
+        buf[at..at + 4].copy_from_slice(&cmd.to_le_bytes());
+        buf[at + 4..at + 8].copy_from_slice(&size.to_le_bytes());
+    };
+
+    write_lc(&mut buffer, off, LC_BUILD_VERSION, 24);
+    buffer[off + 8..off + 12].copy_from_slice(&1u32.to_le_bytes()); // platform
+    off += 24;
+
+    write_lc(&mut buffer, off, LC_SOURCE_VERSION, 16);
+    buffer[off + 8..off + 16].copy_from_slice(&0x0102030405060708u64.to_le_bytes());
+    off += 16;
+
+    write_lc(&mut buffer, off, LC_VERSION_MIN_MACOSX, 16);
+    buffer[off + 8..off + 12].copy_from_slice(&0x000A0B00u32.to_le_bytes());
+    off += 16;
+
+    write_lc(&mut buffer, off, LC_UNIXTHREAD, 24);
+    buffer[off + 8..off + 12].copy_from_slice(&1u32.to_le_bytes()); // flavor
+    buffer[off + 12..off + 16].copy_from_slice(&2u32.to_le_bytes()); // count
+    buffer[off + 16..off + 24].copy_from_slice(&[0xAA; 8]);
+    off += 24;
+
+    write_lc(&mut buffer, off, LC_LINKER_OPTION, 24);
+    buffer[off + 8..off + 12].copy_from_slice(&1u32.to_le_bytes());
+    buffer[off + 12..off + 24].copy_from_slice(b"-dead_strip\0");
+    off += 24;
+
+    write_lc(&mut buffer, off, LC_FILESET_ENTRY, 48);
+    buffer[off + 8..off + 16].copy_from_slice(&0x1000u64.to_le_bytes());
+    buffer[off + 16..off + 24].copy_from_slice(&0x2000u64.to_le_bytes());
+    buffer[off + 24..off + 28].copy_from_slice(&32u32.to_le_bytes());
+    buffer[off + 32..off + 44].copy_from_slice(b"com.app.ext\0");
+    off += 48;
+
+    let sizeofcmds = (off - 32) as u32;
+    buffer[20..24].copy_from_slice(&sizeofcmds.to_le_bytes());
+
+    let macho = macho::MachO::from_buffer(buffer).expect("parse");
+    let typed = macho.typed_commands().expect("typed");
+
+    assert!(typed
+        .iter()
+        .any(|c| matches!(c, TypedCommand::BuildVersion(_))));
+    assert!(typed
+        .iter()
+        .any(|c| matches!(c, TypedCommand::SourceVersion(_))));
+    assert!(typed
+        .iter()
+        .any(|c| matches!(c, TypedCommand::VersionMin(_))));
+    assert!(typed
+        .iter()
+        .any(|c| matches!(c, TypedCommand::UnixThread(_))));
+    assert!(typed
+        .iter()
+        .any(|c| matches!(c, TypedCommand::LinkerOption(_))));
+    assert!(typed
+        .iter()
+        .any(|c| matches!(c, TypedCommand::FilesetEntry(_))));
+
+    if let Some(TypedCommand::UnixThread(t)) = typed
+        .iter()
+        .find(|c| matches!(c, TypedCommand::UnixThread(_)))
+    {
+        assert_eq!(t.flavor.value, 1);
+        assert_eq!(t.count.value, 2);
+        assert_eq!(t.state.len(), 8);
+    }
+    if let Some(TypedCommand::LinkerOption(l)) = typed
+        .iter()
+        .find(|c| matches!(c, TypedCommand::LinkerOption(_)))
+    {
+        assert_eq!(l.options, vec!["-dead_strip".to_string()]);
+    }
+    if let Some(TypedCommand::FilesetEntry(f)) = typed
+        .iter()
+        .find(|c| matches!(c, TypedCommand::FilesetEntry(_)))
+    {
+        assert_eq!(f.entry_id, "com.app.ext");
+        assert_eq!(f.vmaddr.value, 0x1000);
+    }
+}
+
+/// Section relocation entries must parse as relocation_info
+#[test]
+fn test_macho_section_relocations() {
+    use macho::relocation::RelocationEntry;
+
+    let mut buffer = vec![0u8; 256];
+    buffer[0..4].copy_from_slice(&0xFEEDFACFu32.to_le_bytes());
+    buffer[16..20].copy_from_slice(&1u32.to_le_bytes());
+    buffer[20..24].copy_from_slice(&(72u32 + 80u32).to_le_bytes());
+    let seg = 32usize;
+    buffer[seg..seg + 4].copy_from_slice(&0x19u32.to_le_bytes());
+    buffer[seg + 4..seg + 8].copy_from_slice(&(72u32 + 80u32).to_le_bytes());
+    buffer[seg + 8..seg + 24].copy_from_slice(b"__TEXT\0\0\0\0\0\0\0\0\0\0");
+    buffer[seg + 64..seg + 68].copy_from_slice(&1u32.to_le_bytes());
+
+    let sect = seg + 72;
+    buffer[sect..sect + 16].copy_from_slice(b"__text\0\0\0\0\0\0\0\0\0\0");
+    buffer[sect + 16..sect + 32].copy_from_slice(b"__TEXT\0\0\0\0\0\0\0\0\0\0");
+    buffer[sect + 56..sect + 60].copy_from_slice(&200u32.to_le_bytes()); // reloff
+    buffer[sect + 60..sect + 64].copy_from_slice(&1u32.to_le_bytes()); // nreloc
+
+    buffer[200..204].copy_from_slice(&16i32.to_le_bytes()); // r_address
+    buffer[204..208].copy_from_slice(&0x1000_0001u32.to_le_bytes()); // sym=1, type=1
+
+    let macho = macho::MachO::from_buffer(buffer).expect("parse");
+    let relocs = macho.relocations().expect("relocs");
+    assert_eq!(relocs.len(), 1);
+    assert!(matches!(relocs[0].1[0], RelocationEntry::Regular(_)));
+    if let RelocationEntry::Regular(r) = &relocs[0].1[0] {
+        assert_eq!(r.r_address.value, 16);
+        assert_eq!(r.r_symbolnum.value, 1);
+        assert_eq!(r.r_type, 1);
+    }
+}
+
+/// Export trie and bind opcode decoding
+#[test]
+fn test_macho_dyld_decode() {
+    use macho::dyld::{decode_bind_opcodes, decode_export_trie, BindOpcode};
+
+    // Minimal export trie: terminal node exporting "_main" at address 0x1000
+    let export_trie = vec![
+        0x03, // terminal size
+        0x00, 0x80, 0x20, // flags=0, address uleb128=0x1000
+        0x00, // no children
+    ];
+    let exports = decode_export_trie(&export_trie).expect("export trie");
+    assert_eq!(exports.len(), 1);
+    assert_eq!(exports[0].address, Some(0x1000));
+
+    let bind = vec![0x90, 0x01, 0x20, 0xB0, 0x00]; // set seg 1 off 0x20, do bind, done
+    let ops = decode_bind_opcodes(&bind).expect("bind");
+    assert!(ops.iter().any(|o| matches!(o, BindOpcode::DoBind)));
+}
+
+/// FAT slice_ref avoids copying unrelated arch data; build and merge work
+#[test]
+fn test_macho_fat_slice_build_merge() {
+    let thin_a = vec![
+        0xCE, 0xFA, 0xED, 0xFE, 0x07, 0, 0, 0, 0x03, 0, 0, 0, 0x02, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0,
+    ];
+    let thin_b = thin_a.clone();
+    let arch_a = macho::fat::FatArch {
+        cpu_type: 7,
+        cpu_subtype: 3,
+        offset: 0,
+        size: 0,
+        align: 12,
+    };
+    let arch_b = macho::fat::FatArch {
+        cpu_type: 0x0100_000C,
+        cpu_subtype: 0,
+        offset: 0,
+        size: 0,
+        align: 12,
+    };
+    let fat = macho::fat::FatHeader::build(&[(arch_a, &thin_a), (arch_b, &thin_b)]).expect("build");
+    assert_eq!(fat[0..4], [0xCA, 0xFE, 0xBA, 0xBE]);
+
+    let slice = macho::MachO::fat_slice_ref(&fat, 1).expect("slice ref");
+    assert_eq!(slice.len(), thin_b.len());
+
+    let merged = macho::fat::FatHeader::merge(
+        &fat,
+        macho::fat::FatArch {
+            cpu_type: 12,
+            cpu_subtype: 0,
+            offset: 0,
+            size: 0,
+            align: 12,
+        },
+        &thin_a,
+    )
+    .expect("merge");
+    let header = macho::fat::FatHeader::parse(&merged)
+        .expect("parse")
+        .expect("fat");
+    assert_eq!(header.arches.len(), 3);
+}
+
+/// insert_load_command_at, remove_load_command, add_section
+#[test]
+fn test_macho_structural_edits() {
+    let mut buffer = vec![0u8; 512];
+    buffer[0..4].copy_from_slice(&0xFEEDFACFu32.to_le_bytes());
+    buffer[16..20].copy_from_slice(&1u32.to_le_bytes());
+    buffer[20..24].copy_from_slice(&72u32.to_le_bytes());
+    buffer[32..36].copy_from_slice(&0x19u32.to_le_bytes());
+    buffer[36..40].copy_from_slice(&72u32.to_le_bytes());
+    buffer[40..56].copy_from_slice(b"__TEXT\0\0\0\0\0\0\0\0\0\0");
+    buffer[32 + 40..32 + 48].copy_from_slice(&300u64.to_le_bytes());
+
+    let mut macho = macho::MachO::from_buffer(buffer).expect("parse");
+    let ncmds_before = macho.header.ncmds.value;
+
+    let uuid_lc = {
+        let mut lc = vec![0u8; 24];
+        lc[0..4].copy_from_slice(&0x1Bu32.to_le_bytes()); // LC_UUID
+        lc[4..8].copy_from_slice(&24u32.to_le_bytes());
+        lc[8..24].copy_from_slice(&[0x42u8; 16]);
+        lc
+    };
+    macho
+        .insert_load_command_at(0, &uuid_lc)
+        .expect("insert lc");
+    assert_eq!(macho.header.ncmds.value, ncmds_before + 1);
+
+    macho.remove_load_command(0).expect("remove lc");
+    assert_eq!(macho.header.ncmds.value, ncmds_before);
+
+    macho
+        .add_section(
+            0,
+            macho::section::NewSection {
+                name: "__newsect".to_string(),
+                addr: 0x2000,
+                size: 0x10,
+                offset: 0,
+                align: 4,
+                flags: 0,
+            },
+        )
+        .expect("add section");
+    assert_eq!(macho.sections.len(), 1);
+    assert_eq!(macho.sections[0].name(), "__newsect");
+}
+
+/// __LLVM segment sections are discoverable
+#[test]
+fn test_macho_llvm_sections() {
+    let mut buffer = vec![0u8; 512];
+    buffer[0..4].copy_from_slice(&0xFEEDFACFu32.to_le_bytes());
+    buffer[16..20].copy_from_slice(&1u32.to_le_bytes());
+    buffer[20..24].copy_from_slice(&(72u32 + 80u32).to_le_bytes());
+    let seg = 32usize;
+    buffer[seg..seg + 4].copy_from_slice(&0x19u32.to_le_bytes());
+    buffer[seg + 4..seg + 8].copy_from_slice(&(72u32 + 80u32).to_le_bytes());
+    buffer[seg + 8..seg + 24].copy_from_slice(b"__LLVM\0\0\0\0\0\0\0\0\0\0");
+    buffer[seg + 64..seg + 68].copy_from_slice(&1u32.to_le_bytes());
+    let sect = seg + 72;
+    buffer[sect..sect + 16].copy_from_slice(b"__bundle\0\0\0\0\0\0\0\0");
+    buffer[sect + 16..sect + 32].copy_from_slice(b"__LLVM\0\0\0\0\0\0\0\0\0\0");
+
+    let macho = macho::MachO::from_buffer(buffer).expect("parse");
+    let llvm = macho.llvm_sections();
+    assert_eq!(llvm.len(), 1);
+    assert_eq!(llvm[0].name(), "__bundle");
 }
