@@ -20,22 +20,6 @@
 >     - *Added*: Your message here using `markdown`.
 
 
-## [Unreleased]
-
-- **PE**
-    - *Added*: `OptionalHeader::active_data_directory_count` / `has_data_directory`; parse respects `number_of_rva_and_sizes`.
-    - *Added*: Full export table (`FunctionExport`, forwarders, `ordinal_only_exports`), bound import (`bound`), delay-load import (`delay`).
-    - *Added*: `relocation::apply_base_relocations`, `PE::apply_image_base`.
-    - *Added*: TLS (`tls`), exception / `RUNTIME_FUNCTION` (`exception`), COFF symbols (`symbol`), section COFF relocs (`section_reloc`), load config base fields (`load_config`), debug directory (`debug`), resource tree (`resource`).
-    - *Added*: `PE::bound_imports`, `delay_imports`, `tls`, `exceptions`, `coff_symbols`, `section_relocations`, `load_config`, `debug_directory`, `resources`, `sync_data_directory_rva`, `sync_data_directory_size`.
-    - *Changed*: `rva_to_offset` maps only RVAs covered by `SizeOfRawData` (file-backed ranges).
-- **ELF**
-    - *Added*: Section semantics — `ELF::section_name`, `section_data` (`SHT_NOBITS` aware), `section_index_by_name`, `section_by_name`; `SectionType` enum + `SectionHeaderEntry::section_type` and `SHT_*` constants.
-    - *Added*: Program header typing — `SegmentType` enum + `ProgramHeaderEntry::segment_type` and `PT_*` constants (`PT_DYNAMIC`, `PT_INTERP`, `PT_NOTE`, `PT_GNU_*`, etc.).
-    - *Added*: Symbol tables (`symbol`) — `SymbolEntry` (`Elf32_Sym` / `Elf64_Sym`), `SymbolTable` with name resolution; `ELF::symbols` (`.symtab`) and `ELF::dynamic_symbols` (`.dynsym`); `STB_*` / `STT_*` constants.
-    - *Added*: Dynamic linking (`dynamic`) — `DynamicEntry`, `DynamicTable`, `DynamicTag`, `DT_*` constants; `ELF::dynamic`.
-    - *Added*: Relocations (`relocation`) — `RelocationEntry` (`.rel` / `.rela`, ELF32/64) with unpacked `symbol()` / `reloc_type()` / `r_addend()`; `ELF::relocations`.
-
 ## [1.0.0] - 2026-07-07
 
 - **General**
@@ -43,31 +27,48 @@
     - *Added*: `ByteOrder::from_ei_data` (alias of `from_elf_data`) and `ByteOrder::from_macho_header_bytes`.
     - *Added*: `NumericFieldMut` and `FieldMut` accessors for layout enums (patch semantics without raw `Field` copies).
     - *Added*: `ByteOrder::read_u16/u32/u64` and `write_u16/u32/u64` helpers for parsers.
+    - *Added*: Cross-format modules `strings`, `validation`, `reloc`, and `write` (name pools, overlap checks, reloc listing, dry-run layout planner).
     - *Changed*: **Breaking** — single `field::ByteOrder` type; removed `elf::header::Endianness` and `macho::header::Endianness`.
 - **PE**
     - *Added*: `DosHeader` (`IMAGE_DOS_HEADER`) and `CoffFileHeader` (`IMAGE_FILE_HEADER`) with full `Field` mapping.
     - *Added*: `PE::architecture()` alias delegating to `coff_header.machine`.
     - *Added*: `OptionalHeader::magic: Field<u16>` and `OptionalHeader::pe_type()` derived from magic.
+    - *Added*: `OptionalHeader::active_data_directory_count` / `has_data_directory`; parse respects `number_of_rva_and_sizes`.
     - *Added*: `NewSection`, `insert_section`, `insert_section_raw`; section flag constants (`CODE`, `READ`, `EXECUTE`, etc.).
+    - *Added*: Full import/export tables, bound import, delay-load import, TLS, exceptions, COFF symbols, section COFF relocs, load config, debug directory, resource tree.
+    - *Added*: `relocation::apply_base_relocations`, `PE::apply_image_base`, `sync_data_directory_rva` / `sync_data_directory_size`.
+    - *Added*: Rich header, Authenticode certificate table (read-only), CLR `IMAGE_COR20_HEADER`, ARM64x/CHPE architecture data, COFF line numbers.
+    - *Added*: Structural helpers — `layout::rename_section`, `remove_section`, `grow_optional_header`, `sync_layout`.
     - *Changed*: **Breaking** — `PE` exposes `dos_header`, `coff_header`, `optional_header`; `architecture` and `number_of_sections` removed from optional header (COFF is canonical).
     - *Changed*: **Breaking** — `PeSection.name` is `Field<FixedBytes<8>>` (use `name_str()` for display).
     - *Changed*: **Breaking** — removed `generate_section_header` and `add_section` (use `insert_section`).
+    - *Changed*: `rva_to_offset` maps only RVAs covered by `SizeOfRawData` (file-backed ranges).
 - **ELF**
     - *Added*: `ElfHeader` fields `ei_mag`, `ei_class`, `ei_data`, `ei_version`, `ei_pad` as canonical `Field`s.
     - *Added*: `ElfHeader::class()` helper derived from `ei_class`.
     - *Added*: `ProgramHeaderEntry` (`Phdr32` / `Phdr64`) and `SectionHeaderEntry` (`Shdr32` / `Shdr64`) with field accessors.
-    - *Added*: `ELF::byte_order()`, `insert_section` (append-only), `insert_pt_load` (append-only), `NewSection`, `NewPtLoad`.
+    - *Added*: `ELF::byte_order()`, `insert_section`, `insert_pt_load`, `NewSection`, `NewPtLoad`.
+    - *Added*: Section semantics, program header typing, symbol tables, `.dynamic`, `.rel` / `.rela` relocations.
+    - *Added*: `.hash` / `.gnu.hash`, GNU version tables, notes / `.note.gnu.property`, unwind blobs, COMDAT groups, init/fini arrays.
+    - *Added*: PLT/GOT linkage views, `relocation::apply_rela`, structural helpers (arbitrary insert, `PT_LOAD` sync, segment split/merge, `e_shnum == 0`).
+    - *Added*: Minimal `ar` archive reader and `ET_CORE` detection.
     - *Changed*: **Breaking** — removed `ELF.byte_order` field and `ElfHeader.ident` / `ElfHeader.class` fields; `byte_order()` returns `Result` from `header.ei_data`.
     - *Changed*: **Breaking** — `program_headers` and `section_headers` use layout enums; `header.endianness` removed (use `elf.byte_order()`).
     - *Changed*: layout field API — read `ph.p_offset()`, patch `ph.p_offset_mut()` (removed `*_value()` duplicates).
 - **Mach-O**
     - *Added*: `SegmentEntry` (`Segment32` / `Segment64`) with field accessors; `MachO::byte_order()`, `insert_segment`, `NewSegment`.
+    - *Added*: Typed load commands (`LC_BUILD_VERSION`, `LC_SOURCE_VERSION`, `LC_VERSION_MIN_*`, `LC_UNIXTHREAD`, linker options, fileset entry).
+    - *Added*: Section relocations, export trie and bind opcode decoders, `__LLVM` bitcode detection.
+    - *Added*: FAT thin slice (`slice_ref`), build/merge, `from_fat_index_read`.
+    - *Added*: Structural helpers — `insert_load_command_at`, `remove_load_command`, `add_section`, code-signature alignment preservation.
     - *Changed*: **Breaking** — removed `MachO.byte_order` field; `byte_order()` derives from header magic bytes on disk.
     - *Changed*: **Breaking** — segment `segname: Field<FixedBytes<16>>` replaces `name: String` (`name()` remains as view).
     - *Changed*: **Breaking** — `segments` use `SegmentEntry`; `header.endianness` removed (use `macho.byte_order()`).
     - *Changed*: layout field API — read `seg.vmaddr()`, patch `seg.vmaddr_mut()` (removed `*_value()` duplicates).
 - **Documentation**
+    - *Added*: `docs/coverage.md` coverage matrix; cross-format section in `docs/guide.md`.
     - *Changed*: `API_DESIGN.md` updated for 1.0 (accessors, insert complexity, migration §8, and 1:1 gap matrix).
+    - *Changed*: Crate-level rustdoc examples for PE, ELF, and Mach-O in `lib.rs`.
 
 ## [0.0.5](https://github.com/M3str3/HexSpell/pull/10) - 2025-08-07
 

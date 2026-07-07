@@ -109,6 +109,33 @@ println!("first segment: {}", macho.segments[0].name());
 
 FAT binaries are unpacked automatically; the parsed object refers to the embedded thin Mach-O.
 
+## Cross-format helpers
+
+| Module | Role |
+|--------|------|
+| [`strings`] | PE import/export/section names; Mach-O cstring pools |
+| [`validation`] | File-range overlap detection, VA ↔ file offset, consistency checks |
+| [`reloc`] | List relocations by RVA/VA or file offset (per-format wrappers) |
+| [`write`] | Layout planner / dry-run flag for structural edits |
+
+### Lazy vs eager parsing
+
+- **Eager at `from_buffer`:** PE DOS/COFF/optional header, section table, and base relocation directory; ELF/Mach-O header tables and segments.
+- **Lazy on demand:** PE imports/exports/TLS/resources, ELF `.dynamic`/symbols/relocations, Mach-O typed load commands and symbol tables.
+- **Zero-copy views:** `PE::section_data`, `ELF::section_data` return slices into `buffer`.
+
+See [coverage.md](coverage.md) for the full matrix.
+
+## API overview (1.0)
+
+HexSpell 1.0 is the first stable release. There are no prior public API versions to migrate from.
+Breaking changes during 1.0 development are listed in [CHANGELOG.md](../CHANGELOG.md).
+New code should use:
+
+- `PE` / `ELF` / `MachO` container types with `buffer: Vec<u8>`
+- `Field::update` / `update_with` for in-place patches
+- Layout accessors (`p_offset()`, `seg.vmaddr_mut()`, …) documented in [layout.md](layout.md)
+
 ## Error handling
 
 All parsers return [`Result`]. Typical variants:
@@ -117,9 +144,14 @@ All parsers return [`Result`]. Typical variants:
 - [`FileParseError::BufferOverflow`] — truncated file or string longer than field size.
 - [`FileParseError::ValueTooLarge`] — numeric value does not fit in the on-disk field width.
 
-## What is not covered yet
+## Known limitations
 
-ELF dynamic linking, Mach-O typed load commands, and full PE layout rebuild after structural edits are not complete. See [`TODO.md`](https://github.com/M3str3/HexSpell/blob/main/TODO.md) for the gap matrix.
+Some edge cases remain partial (for example PE `remove_section` without full entry-point rebuild, or Mach-O load-command removal with code-signature padding). See [coverage.md](coverage.md) for the full matrix.
+
+[`strings`]: crate::strings
+[`validation`]: crate::validation
+[`reloc`]: crate::reloc
+[`write`]: crate::write
 
 [`Field`]: crate::field::Field
 [`FixedBytes`]: crate::field::FixedBytes

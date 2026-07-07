@@ -39,6 +39,13 @@ Or manually add this line to your `Cargo.toml`:
 [dependencies]
 hexspell = "1.0"
 ```
+
+## Documentation
+
+- [User guide](docs/guide.md) — design principles, per-format examples, error handling
+- [Layout accessors](docs/layout.md) — `field()` / `field_mut()` on ELF/Mach-O layout enums
+- [Coverage matrix](docs/coverage.md) — what is modeled vs not (PE / ELF / Mach-O)
+
 ## Examples of use
 
 ### Parsing PE Files
